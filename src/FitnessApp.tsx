@@ -40,6 +40,106 @@ interface ProgressQuest extends BaseQuest {
 
 type Quest = StandardQuest | ProgressQuest;
 
+// Bibliothèque d'exercices interfaces
+enum MuscleGroup {
+  Chest = 'Poitrine',
+  Back = 'Dos',
+  Legs = 'Jambes',
+  Shoulders = 'Épaules',
+  Arms = 'Bras',
+  Core = 'Abdominaux',
+  Cardio = 'Cardio',
+  FullBody = 'Corps entier'
+}
+
+enum ExerciseType {
+  Strength = 'Force',
+  Cardio = 'Cardio',
+  Flexibility = 'Souplesse',
+  Plank = 'Gainage'
+}
+
+enum TrackingType {
+  WeightReps = 'Poids/Répétitions',
+  Time = 'Temps',
+  Distance = 'Distance',
+  RepsOnly = 'Répétitions seules'
+}
+
+enum Equipment {
+  Bodyweight = 'Poids du corps',
+  Dumbbells = 'Haltères',
+  Barbell = 'Barre',
+  Machine = 'Machine',
+  Kettlebell = 'Kettlebell',
+  ResistanceBand = 'Bande élastique',
+  Cable = 'Câble',
+  Bench = 'Banc',
+  None = 'Aucun'
+}
+
+interface ExerciseVariant {
+  name: string;
+  description: string;
+  difficulty: 'Débutant' | 'Intermédiaire' | 'Avancé';
+}
+
+interface LibraryExercise {
+  id: number;
+  name: string;
+  primaryMuscleGroup: MuscleGroup;
+  secondaryMuscleGroups?: MuscleGroup[];
+  type: ExerciseType;
+  trackingType: TrackingType;
+  equipment: Equipment[];
+  description: string;
+  videoUrl?: string;
+  imageUrl?: string;
+  variants?: ExerciseVariant[];
+  isCustom: boolean;
+  dateAdded: Date;
+}
+
+// Records personnels interfaces
+interface BasePersonalRecord {
+  id: number;
+  exerciseId: number;
+  date: Date;
+  notes?: string;
+}
+
+interface WeightRecord extends BasePersonalRecord {
+  weight: number; // en kg
+  reps: number;
+}
+
+interface TimeRecord extends BasePersonalRecord {
+  duration: number; // en secondes
+}
+
+interface DistanceRecord extends BasePersonalRecord {
+  distance: number; // en mètres
+  duration?: number; // en secondes
+}
+
+interface RepsRecord extends BasePersonalRecord {
+  reps: number;
+}
+
+type PersonalRecord = WeightRecord | TimeRecord | DistanceRecord | RepsRecord;
+
+// Badges interfaces
+interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: 'Régularité' | 'Performance' | 'Maîtrise';
+  dateUnlocked?: Date;
+  progress?: number;
+  target: number;
+}
+
 // Programme d'entraînement sur 4 semaines
 const workoutProgram = {
   week1: [
@@ -87,6 +187,155 @@ const FitnessApp = () => {
     { id: 4, name: "La Marche Active", description: "30 min de marche rapide", completed: false, xp: 150, coins: 75, icon: '🚶' },
     { id: 5, name: "Sommeil Réparateur", description: "Dormir 7-8 heures", completed: false, xp: 100, coins: 50, icon: '😴' }
   ]);
+  
+  // Bibliothèque d'exercices
+  const [exerciseLibrary, setExerciseLibrary] = useState<LibraryExercise[]>([
+    {
+      id: 1,
+      name: "Squat",
+      primaryMuscleGroup: MuscleGroup.Legs,
+      secondaryMuscleGroups: [MuscleGroup.Core],
+      type: ExerciseType.Strength,
+      trackingType: TrackingType.WeightReps,
+      equipment: [Equipment.Bodyweight, Equipment.Barbell, Equipment.Dumbbells],
+      description: "Le squat est un exercice polyarticulaire qui cible principalement les quadriceps, les ischio-jambiers et les fessiers.",
+      videoUrl: "https://example.com/squat.mp4",
+      imageUrl: "https://example.com/squat.jpg",
+      variants: [
+        { name: "Squat poids du corps", description: "Version basique sans équipement", difficulty: "Débutant" },
+        { name: "Squat gobelet", description: "Avec un haltère tenu devant la poitrine", difficulty: "Intermédiaire" },
+        { name: "Squat barre", description: "Avec une barre sur les épaules", difficulty: "Avancé" }
+      ],
+      isCustom: false,
+      dateAdded: new Date(2025, 4, 1)
+    },
+    {
+      id: 2,
+      name: "Pompes",
+      primaryMuscleGroup: MuscleGroup.Chest,
+      secondaryMuscleGroups: [MuscleGroup.Shoulders, MuscleGroup.Arms],
+      type: ExerciseType.Strength,
+      trackingType: TrackingType.RepsOnly,
+      equipment: [Equipment.Bodyweight],
+      description: "Les pompes sont un exercice de base qui cible principalement les pectoraux, les épaules et les triceps.",
+      videoUrl: "https://example.com/pushups.mp4",
+      imageUrl: "https://example.com/pushups.jpg",
+      variants: [
+        { name: "Pompes sur les genoux", description: "Version facilitée pour débutants", difficulty: "Débutant" },
+        { name: "Pompes classiques", description: "Version standard", difficulty: "Intermédiaire" },
+        { name: "Pompes déclinées", description: "Avec les pieds surélevés", difficulty: "Avancé" }
+      ],
+      isCustom: false,
+      dateAdded: new Date(2025, 4, 1)
+    },
+    {
+      id: 3,
+      name: "Planche",
+      primaryMuscleGroup: MuscleGroup.Core,
+      secondaryMuscleGroups: [MuscleGroup.Shoulders],
+      type: ExerciseType.Plank,
+      trackingType: TrackingType.Time,
+      equipment: [Equipment.Bodyweight],
+      description: "La planche est un exercice statique qui renforce les abdominaux, le dos et les épaules.",
+      videoUrl: "https://example.com/plank.mp4",
+      imageUrl: "https://example.com/plank.jpg",
+      variants: [
+        { name: "Planche sur les genoux", description: "Version facilitée", difficulty: "Débutant" },
+        { name: "Planche standard", description: "Sur les avant-bras", difficulty: "Intermédiaire" },
+        { name: "Planche latérale", description: "Sur un seul côté", difficulty: "Avancé" }
+      ],
+      isCustom: false,
+      dateAdded: new Date(2025, 4, 1)
+    },
+    {
+      id: 4,
+      name: "Course",
+      primaryMuscleGroup: MuscleGroup.Cardio,
+      secondaryMuscleGroups: [MuscleGroup.Legs],
+      type: ExerciseType.Cardio,
+      trackingType: TrackingType.Distance,
+      equipment: [Equipment.None],
+      description: "La course est un exercice cardio-vasculaire qui améliore l'endurance et brûle des calories.",
+      videoUrl: "https://example.com/running.mp4",
+      imageUrl: "https://example.com/running.jpg",
+      isCustom: false,
+      dateAdded: new Date(2025, 4, 1)
+    }
+  ]);
+  
+  // Records personnels
+  const [personalRecords, setPersonalRecords] = useState<PersonalRecord[]>([
+    {
+      id: 1,
+      exerciseId: 1, // Squat
+      weight: 80,
+      reps: 8,
+      date: new Date(2025, 4, 15),
+      notes: "Première fois à 80kg"
+    } as WeightRecord,
+    {
+      id: 2,
+      exerciseId: 2, // Pompes
+      reps: 15,
+      date: new Date(2025, 4, 10)
+    } as RepsRecord,
+    {
+      id: 3,
+      exerciseId: 3, // Planche
+      duration: 60, // 60 secondes
+      date: new Date(2025, 4, 12)
+    } as TimeRecord
+  ]);
+  
+  // Badges
+  const [badges, setBadges] = useState<Badge[]>([
+    {
+      id: "first-workout",
+      name: "Le Départ Idéal",
+      description: "Terminer la première séance du programme",
+      icon: "🏅",
+      category: "Régularité",
+      dateUnlocked: new Date(2025, 4, 5),
+      progress: 1,
+      target: 1
+    },
+    {
+      id: "serial-sportif",
+      name: "Serial Sportif",
+      description: "Enchaîner 7 jours d'activité physique",
+      icon: "🔥",
+      category: "Régularité",
+      dateUnlocked: new Date(2025, 4, 12),
+      progress: 7,
+      target: 7
+    },
+    {
+      id: "first-pr",
+      name: "Premier RP",
+      description: "Enregistrer un premier Record Personnel",
+      icon: "🥇",
+      category: "Performance",
+      dateUnlocked: new Date(2025, 4, 15),
+      progress: 1,
+      target: 1
+    },
+    {
+      id: "centurion",
+      name: "Le Centurion",
+      description: "Soulever un volume total de 100 000 kg",
+      icon: "💪",
+      category: "Performance",
+      progress: 45000,
+      target: 100000
+    }
+  ]);
+  
+  // Filtre pour la bibliothèque d'exercices
+  const [exerciseFilter, setExerciseFilter] = useState({
+    muscleGroup: null as MuscleGroup | null,
+    equipment: null as Equipment | null,
+    searchTerm: ""
+  });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -632,8 +881,175 @@ const FitnessApp = () => {
         </div>
       )}
 
+      {/* Écran Bibliothèque d'exercices */}
+      {currentScreen === 'exercises' && (
+        <div className="p-4 pb-20">
+          <h1 className="text-2xl font-bold mb-4">Bibliothèque d'exercices</h1>
+          
+          {/* Barre de recherche et filtres */}
+          <div className="mb-6">
+            <div className="relative mb-3">
+              <input
+                type="text"
+                placeholder="Rechercher un exercice..."
+                className="w-full bg-gray-800 rounded-full px-4 py-2 pl-10 text-white"
+                value={exerciseFilter.searchTerm}
+                onChange={(e) => setExerciseFilter({...exerciseFilter, searchTerm: e.target.value})}
+              />
+              <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+            </div>
+            
+            {/* Filtres par groupe musculaire */}
+            <div className="mb-3">
+              <p className="text-sm text-gray-400 mb-2">Groupe musculaire</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(MuscleGroup).map((group) => (
+                  <button
+                    key={group}
+                    onClick={() => setExerciseFilter({
+                      ...exerciseFilter, 
+                      muscleGroup: exerciseFilter.muscleGroup === group ? null : group as MuscleGroup
+                    })}
+                    className={`px-3 py-1 rounded-full text-xs ${exerciseFilter.muscleGroup === group ? 'bg-purple-600' : 'bg-gray-700'}`}
+                  >
+                    {group}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Filtres par équipement */}
+            <div>
+              <p className="text-sm text-gray-400 mb-2">Équipement</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(Equipment).map((equip) => (
+                  <button
+                    key={equip}
+                    onClick={() => setExerciseFilter({
+                      ...exerciseFilter, 
+                      equipment: exerciseFilter.equipment === equip ? null : equip as Equipment
+                    })}
+                    className={`px-3 py-1 rounded-full text-xs ${exerciseFilter.equipment === equip ? 'bg-purple-600' : 'bg-gray-700'}`}
+                  >
+                    {equip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Liste des exercices filtrés */}
+          <div className="space-y-3">
+            {exerciseLibrary
+              .filter(exercise => {
+                // Filtre par terme de recherche
+                if (exerciseFilter.searchTerm && !exercise.name.toLowerCase().includes(exerciseFilter.searchTerm.toLowerCase())) {
+                  return false;
+                }
+                
+                // Filtre par groupe musculaire
+                if (exerciseFilter.muscleGroup && 
+                    exercise.primaryMuscleGroup !== exerciseFilter.muscleGroup && 
+                    !exercise.secondaryMuscleGroups?.includes(exerciseFilter.muscleGroup)) {
+                  return false;
+                }
+                
+                // Filtre par équipement
+                if (exerciseFilter.equipment && !exercise.equipment.includes(exerciseFilter.equipment)) {
+                  return false;
+                }
+                
+                return true;
+              })
+              .map(exercise => {
+                // Trouver le record personnel pour cet exercice
+                const record = personalRecords.find(r => r.exerciseId === exercise.id);
+                
+                return (
+                  <div key={exercise.id} className="bg-gray-800 rounded-xl p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-bold">{exercise.name}</h3>
+                        <div className="flex items-center text-xs text-gray-400 mt-1">
+                          <span className="bg-gray-700 rounded-full px-2 py-0.5 mr-2">{exercise.primaryMuscleGroup}</span>
+                          <span className="bg-gray-700 rounded-full px-2 py-0.5">{exercise.type}</span>
+                        </div>
+                      </div>
+                      {record && (
+                        <div className="bg-yellow-500/20 rounded-lg px-2 py-1 text-xs text-yellow-400">
+                          {/* Affichage du RP en fonction du type */}
+                          {'weight' in record && (
+                            <span>RP: {record.weight}kg × {record.reps}</span>
+                          )}
+                          {'duration' in record && record.duration !== undefined && (
+                            <span>RP: {Math.floor(record.duration / 60)}:{(record.duration % 60).toString().padStart(2, '0')}</span>
+                          )}
+                          {'reps' in record && !('weight' in record) && (
+                            <span>RP: {record.reps} reps</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-300 mb-3 line-clamp-2">{exercise.description}</p>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center text-xs">
+                        {exercise.equipment.slice(0, 2).map((equip, i) => (
+                          <span key={i} className="mr-2 text-gray-400">{equip}</span>
+                        ))}
+                        {exercise.equipment.length > 2 && <span className="text-gray-400">+{exercise.equipment.length - 2}</span>}
+                      </div>
+                      <button className="bg-gray-700 rounded-full p-1">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+          
+          {/* Bouton ajouter un exercice personnalisé */}
+          <div className="fixed bottom-20 right-4">
+            <button 
+              className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-full w-14 h-14 flex items-center justify-center shadow-lg transform transition-transform hover:scale-105"
+              title="Ajouter un exercice personnalisé"
+            >
+              <Plus className="w-7 h-7" />
+            </button>
+          </div>
+          
+          {/* Message si aucun exercice ne correspond aux filtres */}
+          {exerciseLibrary.filter(exercise => {
+            if (exerciseFilter.searchTerm && !exercise.name.toLowerCase().includes(exerciseFilter.searchTerm.toLowerCase())) {
+              return false;
+            }
+            if (exerciseFilter.muscleGroup && 
+                exercise.primaryMuscleGroup !== exerciseFilter.muscleGroup && 
+                !exercise.secondaryMuscleGroups?.includes(exerciseFilter.muscleGroup)) {
+              return false;
+            }
+            if (exerciseFilter.equipment && !exercise.equipment.includes(exerciseFilter.equipment)) {
+              return false;
+            }
+            return true;
+          }).length === 0 && (
+            <div className="text-center py-8">
+              <div className="text-gray-400 mb-2">
+                <Search className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p>Aucun exercice ne correspond à vos critères</p>
+              </div>
+              <button 
+                onClick={() => setExerciseFilter({muscleGroup: null, equipment: null, searchTerm: ""})}
+                className="text-purple-400 text-sm mt-2"
+              >
+                Réinitialiser les filtres
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Navigation bottom */}
-      {(currentScreen === 'dashboard' || currentScreen === 'badges') && (
+      {(currentScreen === 'dashboard' || currentScreen === 'badges' || currentScreen === 'exercises') && (
         <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur border-t border-gray-800">
           <div className="grid grid-cols-4 gap-1 p-2">
             <button 
@@ -650,13 +1066,16 @@ const FitnessApp = () => {
               <Award className="w-6 h-6 mb-1" />
               <span className="text-xs">Badges</span>
             </button>
+            <button 
+              onClick={() => setCurrentScreen('exercises')}
+              className={`flex flex-col items-center py-2 ${currentScreen === 'exercises' ? 'text-purple-400' : 'text-gray-400'}`}
+            >
+              <Dumbbell className="w-6 h-6 mb-1" />
+              <span className="text-xs">Exercices</span>
+            </button>
             <button className="flex flex-col items-center py-2 text-gray-400">
               <TrendingUp className="w-6 h-6 mb-1" />
               <span className="text-xs">Stats</span>
-            </button>
-            <button className="flex flex-col items-center py-2 text-gray-400">
-              <Users className="w-6 h-6 mb-1" />
-              <span className="text-xs">Social</span>
             </button>
           </div>
         </div>
