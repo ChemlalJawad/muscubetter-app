@@ -140,6 +140,29 @@ interface Badge {
   target: number;
 }
 
+// Système de niveaux inspiré manga/anime
+enum UserLevel {
+  NoviceEnReprise = 1,
+  ApprentiAthlete = 2,
+  GuerrierEnDevenir = 3,
+  ForceMontante = 4,
+  EnduranceEveillee = 5,
+  SouplesseInitiale = 6,
+  AthleteDetermine = 7,
+  MaitreDeLaReprise = 8,
+  LegendeEnMarche = 9,
+  Gear5 = 10
+}
+
+interface LevelInfo {
+  level: UserLevel;
+  name: string;
+  description: string;
+  xpRequired: number;
+  icon: string;
+  color: string;
+}
+
 // Programme d'entraînement sur 4 semaines
 const workoutProgram = {
   week1: [
@@ -157,9 +180,93 @@ const workoutProgram = {
   ]
 };
 
+// Informations sur les niveaux
+const levelInfos: LevelInfo[] = [
+  {
+    level: UserLevel.NoviceEnReprise,
+    name: "Novice en Reprise",
+    description: "Vous faites vos premiers pas dans votre reprise sportive. Continuez à vous entraîner régulièrement !",
+    xpRequired: 0,
+    icon: "🏋️",
+    color: "#6366f1" // indigo-500
+  },
+  {
+    level: UserLevel.ApprentiAthlete,
+    name: "Apprenti Athlète",
+    description: "Vous commencez à développer une routine d'entraînement. Votre corps s'adapte progressivement !",
+    xpRequired: 1000,
+    icon: "💪",
+    color: "#8b5cf6" // violet-500
+  },
+  {
+    level: UserLevel.GuerrierEnDevenir,
+    name: "Guerrier en Devenir",
+    description: "Votre détermination se renforce. Vous êtes sur la bonne voie pour devenir un véritable guerrier !",
+    xpRequired: 2500,
+    icon: "⚔️",
+    color: "#ec4899" // pink-500
+  },
+  {
+    level: UserLevel.ForceMontante,
+    name: "Force Montante",
+    description: "Votre force augmente sensiblement. Les charges deviennent plus faciles à soulever !",
+    xpRequired: 5000,
+    icon: "💪",
+    color: "#ef4444" // red-500
+  },
+  {
+    level: UserLevel.EnduranceEveillee,
+    name: "Endurance Éveillée",
+    description: "Votre endurance s'améliore. Vous pouvez maintenant tenir plus longtemps dans vos efforts !",
+    xpRequired: 8000,
+    icon: "🏃",
+    color: "#f97316" // orange-500
+  },
+  {
+    level: UserLevel.SouplesseInitiale,
+    name: "Souplesse Initiale",
+    description: "Votre corps gagne en souplesse. Vos mouvements deviennent plus fluides et précis !",
+    xpRequired: 12000,
+    icon: "🧘",
+    color: "#14b8a6" // teal-500
+  },
+  {
+    level: UserLevel.AthleteDetermine,
+    name: "Athlète Déterminé",
+    description: "Vous êtes désormais un athlète accompli. Votre détermination est impressionnante !",
+    xpRequired: 18000,
+    icon: "🏅",
+    color: "#0ea5e9" // sky-500
+  },
+  {
+    level: UserLevel.MaitreDeLaReprise,
+    name: "Maître de la Reprise",
+    description: "Vous maîtrisez parfaitement votre corps et vos entraînements. Un exemple pour les autres !",
+    xpRequired: 25000,
+    icon: "🥇",
+    color: "#6366f1" // indigo-500
+  },
+  {
+    level: UserLevel.LegendeEnMarche,
+    name: "Légende en Marche",
+    description: "Votre progression est légendaire. Peu de personnes atteignent ce niveau d'excellence !",
+    xpRequired: 40000,
+    icon: "🔥",
+    color: "#a855f7" // purple-500
+  },
+  {
+    level: UserLevel.Gear5,
+    name: "Gear 5",
+    description: "Vous avez atteint l'éveil ultime, comme Luffy en Gear 5. Votre potentiel est illimité !",
+    xpRequired: 60000,
+    icon: "✨",
+    color: "#f43f5e" // rose-500
+  }
+];
+
 const FitnessApp = () => {
   const [currentScreen, setCurrentScreen] = useState('dashboard');
-  const [userLevel, setUserLevel] = useState(1);
+  const [userLevel, setUserLevel] = useState<UserLevel>(UserLevel.NoviceEnReprise);
   const [userXP, setUserXP] = useState(0);
   const [userStats, setUserStats] = useState({
     force: 10,
@@ -284,8 +391,26 @@ const FitnessApp = () => {
       exerciseId: 3, // Planche
       duration: 60, // 60 secondes
       date: new Date(2025, 4, 12)
-    } as TimeRecord
+    } as TimeRecord,
+    {
+      id: 4,
+      exerciseId: 4, // Course
+      distance: 5000, // 5 km
+      duration: 1500, // 25 minutes
+      date: new Date(2025, 4, 20)
+    } as DistanceRecord
   ]);
+  
+  // État pour le modal d'ajout de record personnel
+  const [showPRModal, setShowPRModal] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<LibraryExercise | null>(null);
+  const [newPR, setNewPR] = useState<{
+    weight?: number;
+    reps?: number;
+    duration?: number;
+    distance?: number;
+    notes?: string;
+  }>({});
   
   // Badges
   const [badges, setBadges] = useState<Badge[]>([
@@ -368,6 +493,184 @@ const FitnessApp = () => {
     if (isResting) {
       setRestTime(prev => Math.max(0, prev + seconds));
     }
+  };
+  
+  // Fonction pour calculer le niveau en fonction de l'XP
+  const calculateLevel = (xp: number): UserLevel => {
+    for (let i = levelInfos.length - 1; i >= 0; i--) {
+      if (xp >= levelInfos[i].xpRequired) {
+        return levelInfos[i].level;
+      }
+    }
+    return UserLevel.NoviceEnReprise;
+  };
+  
+  // Fonction pour obtenir les informations du niveau actuel
+  const getCurrentLevelInfo = (): LevelInfo => {
+    return levelInfos.find(info => info.level === userLevel) || levelInfos[0];
+  };
+  
+  // Fonction pour obtenir les informations du niveau suivant
+  const getNextLevelInfo = (): LevelInfo | null => {
+    const currentLevelIndex = levelInfos.findIndex(info => info.level === userLevel);
+    if (currentLevelIndex < levelInfos.length - 1) {
+      return levelInfos[currentLevelIndex + 1];
+    }
+    return null;
+  };
+  
+  // Fonction pour ajouter de l'XP et mettre à jour le niveau si nécessaire
+  const addXP = (amount: number) => {
+    const newXP = userXP + amount;
+    setUserXP(newXP);
+    
+    const newLevel = calculateLevel(newXP);
+    if (newLevel !== userLevel) {
+      setUserLevel(newLevel);
+      // Afficher une animation ou notification de niveau supérieur
+      // TODO: Implémenter l'animation de niveau supérieur
+    }
+  };
+  
+  // Fonction pour ouvrir le modal d'ajout de record personnel
+  const openPRModal = (exercise: LibraryExercise) => {
+    setSelectedExercise(exercise);
+    setNewPR({});
+    setShowPRModal(true);
+  };
+  
+  // Fonction pour fermer le modal d'ajout de record personnel
+  const closePRModal = () => {
+    setShowPRModal(false);
+    setSelectedExercise(null);
+    setNewPR({});
+  };
+  
+  // Fonction pour ajouter un nouveau record personnel
+  const addPersonalRecord = () => {
+    if (!selectedExercise) return;
+    
+    const newRecord: Partial<PersonalRecord> = {
+      id: personalRecords.length + 1,
+      exerciseId: selectedExercise.id,
+      date: new Date(),
+      notes: newPR.notes
+    };
+    
+    let isRecord = false;
+    
+    // Créer le bon type de record selon le type d'exercice
+    switch (selectedExercise.trackingType) {
+      case TrackingType.WeightReps:
+        if (newPR.weight && newPR.reps) {
+          const weightRecord = newRecord as WeightRecord;
+          weightRecord.weight = newPR.weight;
+          weightRecord.reps = newPR.reps;
+          
+          // Vérifier si c'est un nouveau record
+          const existingWeightRecords = personalRecords.filter(
+            r => r.exerciseId === selectedExercise.id && 'weight' in r
+          ) as WeightRecord[];
+          
+          if (existingWeightRecords.length === 0 || 
+              existingWeightRecords.every(r => r.weight < weightRecord.weight || 
+                                            (r.weight === weightRecord.weight && r.reps < weightRecord.reps))) {
+            isRecord = true;
+          }
+          
+          setPersonalRecords(prev => [...prev, weightRecord]);
+        }
+        break;
+        
+      case TrackingType.RepsOnly:
+        if (newPR.reps) {
+          const repsRecord = newRecord as RepsRecord;
+          repsRecord.reps = newPR.reps;
+          
+          // Vérifier si c'est un nouveau record
+          const existingRepsRecords = personalRecords.filter(
+            r => r.exerciseId === selectedExercise.id && 'reps' in r && !('weight' in r)
+          ) as RepsRecord[];
+          
+          if (existingRepsRecords.length === 0 || 
+              existingRepsRecords.every(r => r.reps < repsRecord.reps)) {
+            isRecord = true;
+          }
+          
+          setPersonalRecords(prev => [...prev, repsRecord]);
+        }
+        break;
+        
+      case TrackingType.Time:
+        if (newPR.duration) {
+          const timeRecord = newRecord as TimeRecord;
+          timeRecord.duration = newPR.duration;
+          
+          // Vérifier si c'est un nouveau record
+          const existingTimeRecords = personalRecords.filter(
+            r => r.exerciseId === selectedExercise.id && 'duration' in r && !('distance' in r)
+          ) as TimeRecord[];
+          
+          if (existingTimeRecords.length === 0 || 
+              existingTimeRecords.every(r => r.duration < timeRecord.duration)) {
+            isRecord = true;
+          }
+          
+          setPersonalRecords(prev => [...prev, timeRecord]);
+        }
+        break;
+        
+      case TrackingType.Distance:
+        if (newPR.distance) {
+          const distanceRecord = newRecord as DistanceRecord;
+          distanceRecord.distance = newPR.distance;
+          if (newPR.duration) distanceRecord.duration = newPR.duration;
+          
+          // Vérifier si c'est un nouveau record
+          const existingDistanceRecords = personalRecords.filter(
+            r => r.exerciseId === selectedExercise.id && 'distance' in r
+          ) as DistanceRecord[];
+          
+          if (existingDistanceRecords.length === 0 || 
+              existingDistanceRecords.every(r => r.distance < distanceRecord.distance)) {
+            isRecord = true;
+          }
+          
+          setPersonalRecords(prev => [...prev, distanceRecord]);
+        }
+        break;
+    }
+    
+    // Si c'est un nouveau record, ajouter de l'XP et débloquer un badge si nécessaire
+    if (isRecord) {
+      addXP(100); // Bonus XP pour un nouveau record
+      
+      // Vérifier si c'est le premier RP de l'utilisateur
+      if (personalRecords.length === 0) {
+        const firstPRBadge = badges.find(b => b.id === "first-pr");
+        if (firstPRBadge && !firstPRBadge.dateUnlocked) {
+          setBadges(prev => prev.map(b => 
+            b.id === "first-pr" ? { ...b, dateUnlocked: new Date() } : b
+          ));
+        }
+      }
+      
+      // Vérifier si l'utilisateur a 5 records différents
+      const uniqueExercisesWithRecords = new Set(
+        personalRecords.map(r => r.exerciseId)
+      );
+      
+      if (uniqueExercisesWithRecords.size >= 5) {
+        const machinePRBadge = badges.find(b => b.id === "machine-pr");
+        if (machinePRBadge && !machinePRBadge.dateUnlocked) {
+          setBadges(prev => prev.map(b => 
+            b.id === "machine-pr" ? { ...b, dateUnlocked: new Date() } : b
+          ));
+        }
+      }
+    }
+    
+    closePRModal();
   };
 
   const startWorkout = (workout: Workout) => {
@@ -519,18 +822,48 @@ const FitnessApp = () => {
             </div>
           </div>
 
-          {/* Barre de progression */}
+          {/* Niveau et progression */}
           <div className="mb-6">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-400">Progression</span>
-              <span className="text-sm text-gray-400">{userXP}/1000 XP</span>
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center">
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center mr-2" 
+                  style={{ background: `linear-gradient(135deg, ${getCurrentLevelInfo().color}, ${getCurrentLevelInfo().color}90)` }}
+                >
+                  <span className="text-xl">{getCurrentLevelInfo().icon}</span>
+                </div>
+                <div>
+                  <p className="font-bold">{getCurrentLevelInfo().name}</p>
+                  <p className="text-xs text-gray-400">Niveau {userLevel}</p>
+                </div>
+              </div>
+              <button 
+                className="bg-gray-800 rounded-full p-1"
+                onClick={() => setCurrentScreen('level-details')}
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
-            <div className="bg-gray-800 h-3 rounded-full overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full"
-                style={{ width: `${(userXP / 1000) * 100}%` }}
-              ></div>
-            </div>
+            
+            {getNextLevelInfo() && (
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-gray-400">Progression vers {getNextLevelInfo()?.name}</span>
+                  <span className="text-sm text-gray-400">
+                    {userXP}/{getNextLevelInfo()?.xpRequired} XP
+                  </span>
+                </div>
+                <div className="bg-gray-800 h-3 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000"
+                    style={{ 
+                      width: `${((userXP - getCurrentLevelInfo().xpRequired) / (getNextLevelInfo()!.xpRequired - getCurrentLevelInfo().xpRequired)) * 100}%`,
+                      background: `linear-gradient(to right, ${getCurrentLevelInfo().color}, ${getNextLevelInfo()?.color})` 
+                    }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Stats utilisateur */}
@@ -998,7 +1331,10 @@ const FitnessApp = () => {
                         ))}
                         {exercise.equipment.length > 2 && <span className="text-gray-400">+{exercise.equipment.length - 2}</span>}
                       </div>
-                      <button className="bg-gray-700 rounded-full p-1">
+                      <button 
+                        className="bg-gray-700 rounded-full p-1 hover:bg-gray-600 transition-colors"
+                        onClick={() => openPRModal(exercise)}
+                      >
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
@@ -1048,8 +1384,323 @@ const FitnessApp = () => {
         </div>
       )}
 
+      {/* Écran de détails du niveau */}
+      {currentScreen === 'level-details' && (
+        <div className="p-4 pb-20">
+          <h1 className="text-2xl font-bold mb-6">Progression de Niveau</h1>
+          
+          {/* Niveau actuel */}
+          <div 
+            className="bg-gray-800 rounded-xl p-4 mb-6 border-2" 
+            style={{ borderColor: getCurrentLevelInfo().color }}
+          >
+            <div className="flex items-center mb-3">
+              <div 
+                className="w-12 h-12 rounded-full flex items-center justify-center mr-3" 
+                style={{ background: `linear-gradient(135deg, ${getCurrentLevelInfo().color}, ${getCurrentLevelInfo().color}90)` }}
+              >
+                <span className="text-2xl">{getCurrentLevelInfo().icon}</span>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">{getCurrentLevelInfo().name}</h2>
+                <p className="text-sm text-gray-400">Niveau {userLevel}</p>
+              </div>
+            </div>
+            <p className="text-gray-300 mb-3">{getCurrentLevelInfo().description}</p>
+            <div className="flex justify-between text-sm text-gray-400">
+              <span>XP requis: {getCurrentLevelInfo().xpRequired}</span>
+              <span>Votre XP: {userXP}</span>
+            </div>
+          </div>
+          
+          {/* Progression vers le niveau suivant */}
+          {getNextLevelInfo() && (
+            <div className="mb-6">
+              <h2 className="text-lg font-bold mb-3">Prochain niveau</h2>
+              <div className="bg-gray-800 rounded-xl p-4">
+                <div className="flex items-center mb-3">
+                  <div 
+                    className="w-10 h-10 rounded-full flex items-center justify-center mr-3 opacity-70" 
+                    style={{ background: `linear-gradient(135deg, ${getNextLevelInfo()?.color}, ${getNextLevelInfo()?.color}90)` }}
+                  >
+                    <span className="text-xl">{getNextLevelInfo()?.icon}</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold">{getNextLevelInfo()?.name}</h3>
+                    <p className="text-xs text-gray-400">Niveau {getNextLevelInfo()?.level}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-300 mb-3">{getNextLevelInfo()?.description}</p>
+                <div className="mb-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs text-gray-400">Progression</span>
+                    <span className="text-xs text-gray-400">
+                      {userXP - getCurrentLevelInfo().xpRequired}/{getNextLevelInfo()!.xpRequired - getCurrentLevelInfo().xpRequired} XP
+                    </span>
+                  </div>
+                  <div className="bg-gray-700 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full"
+                      style={{ 
+                        width: `${((userXP - getCurrentLevelInfo().xpRequired) / (getNextLevelInfo()!.xpRequired - getCurrentLevelInfo().xpRequired)) * 100}%`,
+                        background: `linear-gradient(to right, ${getCurrentLevelInfo().color}, ${getNextLevelInfo()?.color})` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Il vous manque {getNextLevelInfo()!.xpRequired - userXP} XP pour atteindre ce niveau
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {/* Tous les niveaux */}
+          <div>
+            <h2 className="text-lg font-bold mb-3">Tous les niveaux</h2>
+            <div className="space-y-2">
+              {levelInfos.map((info) => (
+                <div 
+                  key={info.level} 
+                  className={`bg-gray-800 rounded-lg p-3 flex items-center ${info.level === userLevel ? 'border border-' + info.color : ''}`}
+                >
+                  <div 
+                    className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${info.level <= userLevel ? 'opacity-100' : 'opacity-50'}`}
+                    style={{ background: `linear-gradient(135deg, ${info.color}, ${info.color}90)` }}
+                  >
+                    <span className="text-sm">{info.icon}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-medium ${info.level <= userLevel ? 'text-white' : 'text-gray-500'}`}>
+                      {info.name}
+                    </p>
+                    <p className="text-xs text-gray-400">Niveau {info.level}</p>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {info.xpRequired} XP
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Bouton pour tester l'ajout d'XP */}
+          <div className="fixed bottom-20 right-4">
+            <button 
+              onClick={() => addXP(500)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-full px-4 py-2 font-bold text-sm shadow-lg"
+            >
+              +500 XP (Test)
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Navigation bottom */}
-      {(currentScreen === 'dashboard' || currentScreen === 'badges' || currentScreen === 'exercises') && (
+      {/* Modal d'ajout de record personnel */}
+      {showPRModal && selectedExercise && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl w-full max-w-md p-5">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Ajouter un record pour {selectedExercise.name}</h2>
+              <button 
+                onClick={closePRModal}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex items-center mb-2">
+                <div 
+                  className="w-8 h-8 rounded-full flex items-center justify-center mr-2"
+                  style={{ backgroundColor: selectedExercise.primaryMuscleGroup === MuscleGroup.Cardio ? '#0ea5e9' : '#8b5cf6' }}
+                >
+                  {selectedExercise.primaryMuscleGroup === MuscleGroup.Cardio ? 
+                    <span>🏃</span> : 
+                    <span>💪</span>
+                  }
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">{selectedExercise.primaryMuscleGroup}</p>
+                  <p className="text-xs text-gray-500">{selectedExercise.trackingType}</p>
+                </div>
+              </div>
+              
+              {/* Champs spécifiques selon le type d'exercice */}
+              <div className="space-y-4 mt-4">
+                {selectedExercise.trackingType === TrackingType.WeightReps && (
+                  <>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">Poids (kg)</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-gray-700 rounded-lg px-3 py-2 text-white"
+                        placeholder="Ex: 80"
+                        value={newPR.weight || ''}
+                        onChange={(e) => setNewPR({...newPR, weight: parseFloat(e.target.value) || undefined})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">Répétitions</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-gray-700 rounded-lg px-3 py-2 text-white"
+                        placeholder="Ex: 8"
+                        value={newPR.reps || ''}
+                        onChange={(e) => setNewPR({...newPR, reps: parseInt(e.target.value) || undefined})}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {selectedExercise.trackingType === TrackingType.RepsOnly && (
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Répétitions</label>
+                    <input 
+                      type="number"
+                      className="w-full bg-gray-700 rounded-lg px-3 py-2 text-white"
+                      placeholder="Ex: 15"
+                      value={newPR.reps || ''}
+                      onChange={(e) => setNewPR({...newPR, reps: parseInt(e.target.value) || undefined})}
+                    />
+                  </div>
+                )}
+                
+                {selectedExercise.trackingType === TrackingType.Time && (
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Durée (secondes)</label>
+                    <input 
+                      type="number"
+                      className="w-full bg-gray-700 rounded-lg px-3 py-2 text-white"
+                      placeholder="Ex: 60"
+                      value={newPR.duration || ''}
+                      onChange={(e) => setNewPR({...newPR, duration: parseInt(e.target.value) || undefined})}
+                    />
+                  </div>
+                )}
+                
+                {selectedExercise.trackingType === TrackingType.Distance && (
+                  <>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">Distance (mètres)</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-gray-700 rounded-lg px-3 py-2 text-white"
+                        placeholder="Ex: 5000"
+                        value={newPR.distance || ''}
+                        onChange={(e) => setNewPR({...newPR, distance: parseFloat(e.target.value) || undefined})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">Durée (secondes)</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-gray-700 rounded-lg px-3 py-2 text-white"
+                        placeholder="Ex: 1500"
+                        value={newPR.duration || ''}
+                        onChange={(e) => setNewPR({...newPR, duration: parseInt(e.target.value) || undefined})}
+                      />
+                    </div>
+                    <div className="bg-gray-700/50 rounded-lg p-3 text-sm">
+                      {newPR.distance && newPR.duration ? (
+                        <div>
+                          <p className="text-gray-400">Vitesse moyenne:</p>
+                          <p className="font-bold">
+                            {((newPR.distance / 1000) / (newPR.duration / 3600)).toFixed(2)} km/h
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-gray-500">Entrez la distance et la durée pour calculer la vitesse</p>
+                      )}
+                    </div>
+                  </>
+                )}
+                
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Notes (optionnel)</label>
+                  <textarea 
+                    className="w-full bg-gray-700 rounded-lg px-3 py-2 text-white"
+                    placeholder="Ex: Bonne forme, sensation de facilité..."
+                    rows={2}
+                    value={newPR.notes || ''}
+                    onChange={(e) => setNewPR({...newPR, notes: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Historique des records */}
+            <div className="mb-6">
+              <h3 className="text-sm font-bold text-gray-400 mb-2">Records précédents</h3>
+              <div className="max-h-32 overflow-y-auto space-y-2">
+                {personalRecords
+                  .filter(record => record.exerciseId === selectedExercise.id)
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((record, index) => (
+                    <div key={index} className="bg-gray-700 rounded-lg p-2 text-sm">
+                      <div className="flex justify-between">
+                        <div>
+                          {'weight' in record && (
+                            <span>{record.weight} kg × {record.reps} reps</span>
+                          )}
+                          {'duration' in record && !('distance' in record) && (
+                            <span>
+                              {Math.floor(record.duration / 60)}:{(record.duration % 60).toString().padStart(2, '0')}
+                            </span>
+                          )}
+                          {'reps' in record && !('weight' in record) && (
+                            <span>{record.reps} répétitions</span>
+                          )}
+                          {'distance' in record && (
+                            <span>
+                              {(record.distance / 1000).toFixed(1)} km
+                              {record.duration && (
+                                <> ({((record.distance / 1000) / (record.duration / 3600)).toFixed(2)} km/h)</>  
+                              )}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {new Date(record.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {record.notes && <p className="text-xs text-gray-400 mt-1">{record.notes}</p>}
+                    </div>
+                  ))}
+                  
+                {personalRecords.filter(record => record.exerciseId === selectedExercise.id).length === 0 && (
+                  <p className="text-sm text-gray-500 italic">Aucun record enregistré pour cet exercice</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={closePRModal}
+                className="flex-1 bg-gray-700 rounded-lg py-2.5 font-medium"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={addPersonalRecord}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg py-2.5 font-medium"
+                disabled={(
+                  (selectedExercise.trackingType === TrackingType.WeightReps && (!newPR.weight || !newPR.reps)) ||
+                  (selectedExercise.trackingType === TrackingType.RepsOnly && !newPR.reps) ||
+                  (selectedExercise.trackingType === TrackingType.Time && !newPR.duration) ||
+                  (selectedExercise.trackingType === TrackingType.Distance && !newPR.distance)
+                )}
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {(currentScreen === 'dashboard' || currentScreen === 'badges' || currentScreen === 'exercises' || currentScreen === 'level-details') && (
         <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur border-t border-gray-800">
           <div className="grid grid-cols-4 gap-1 p-2">
             <button 
