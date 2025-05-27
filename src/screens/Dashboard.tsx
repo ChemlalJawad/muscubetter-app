@@ -3,7 +3,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { DataService } from '../lib/dataService';
 import { Exercise } from '../lib/database';
 // Import des icônes
-import { Shield, Star, Sparkles, Dumbbell, Wind, Activity, Flame, Droplet, Trophy, Medal, Crown, Zap, Heart, Award, Target, Calendar, ChevronRight, CheckCircle, TrendingUp } from 'lucide-react';
+import { Shield, Star, Sparkles, Dumbbell, Wind, Activity, Flame, Droplet, Medal, Zap, Award, Calendar, CheckCircle, TrendingUp } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { 

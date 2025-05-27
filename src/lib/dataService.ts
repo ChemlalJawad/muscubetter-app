@@ -5,11 +5,9 @@ import {
   Workout, 
   PlayerStats, 
   DailyQuest, 
-  Badge,
   Player,
   getExercises,
   saveExercise,
-  saveExercises,
   getPlayerStats,
   updatePlayerStats,
   getDailyQuests,
@@ -17,7 +15,6 @@ import {
   getWorkoutPrograms,
   saveWorkoutProgram,
   updateWorkoutCompletion,
-  initializeDatabase,
   getPlayerById,
   savePlayer,
   getPlayers,
@@ -63,8 +60,9 @@ export class DataService {
     try {
       console.log(`Création/mise à jour du joueur ${player.username}...`);
       
-      // Vérifier si le joueur existe déjà
-      const existingPlayer = await getPlayerById(player.player_id);
+      // Vérifier si le joueur existe déjà - vérification effectuée dans savePlayer
+      // Nous n'avons pas besoin de stocker le résultat ici
+      await getPlayerById(player.player_id);
       
       // Insérer ou mettre à jour le joueur
       const savedPlayer = await savePlayer(player);

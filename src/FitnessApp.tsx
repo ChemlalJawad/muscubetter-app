@@ -7,7 +7,7 @@ import { useAppContext } from './contexts/AppContext';
 
 // Importation des icônes (vous devrez installer lucide-react)
 // npm install lucide-react
-import { Activity, Award, TrendingUp, Users, Dumbbell, Trophy } from 'lucide-react';
+import { Activity, TrendingUp, Dumbbell, Award } from 'lucide-react';
 
 // Composant principal qui gère l'affichage des différents écrans
 const FitnessAppContent: React.FC = () => {

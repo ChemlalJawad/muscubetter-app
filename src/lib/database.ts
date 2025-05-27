@@ -415,15 +415,15 @@ export async function updatePlayerStats(stats: PlayerStats) {
  */
 export async function updatePlayerXP(playerId: string, xp: number, muscleCoins: number) {
   try {
-    // Récupérer d'abord les données actuelles du joueur
-    const { data: playerData, error: fetchError } = await supabase
+    // Vérifier si le joueur existe
+    const { error: fetchError } = await supabase
       .from('players')
-      .select('xp, muscle_coins')
+      .select('player_id')
       .eq('player_id', playerId)
       .single();
     
     if (fetchError) {
-      console.error('Erreur lors de la récupération des données du joueur:', fetchError);
+      console.error('Erreur lors de la vérification de l\'existence du joueur:', fetchError);
       return null;
     }
     
