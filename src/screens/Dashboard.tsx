@@ -15,7 +15,8 @@ const Dashboard: React.FC = () => {
     weeklyProgram,
     startWorkout,
     addXP,
-    addMuscleCoins
+    addMuscleCoins,
+    playerStats
   } = useAppContext();
 
   // Calcul du niveau basé sur l'XP
@@ -255,52 +256,196 @@ const Dashboard: React.FC = () => {
           
           {activeTab === 'stats' && (
             <div>
-              {/* Contenu de l'onglet Stats */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-700/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Dumbbell className="w-5 h-5 text-red-400" />
-                    <h3 className="font-semibold">Poids total soulevé</h3>
+              {/* Contenu de l'onglet Statistiques */}
+              <div className="space-y-6">
+                {/* Attributs principaux */}
+                <div>
+                  <h3 className="font-semibold text-xl flex items-center gap-2 mb-4">
+                    <TrendingUp className="w-6 h-6 text-blue-400" />
+                    Attributs
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Force */}
+                    <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-red-500/20 rounded-2xl flex items-center justify-center">
+                            <Dumbbell className="w-6 h-6 text-red-400" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-red-100">Force</h4>
+                            <p className="text-sm text-red-300">Puissance musculaire</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-red-400">{playerStats?.force || 2}</p>
+                          <p className="text-xs text-red-300">/ 100</p>
+                        </div>
+                      </div>
+                      <div className="bg-gray-700/50 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-red-500 to-orange-600 h-full transition-all duration-500"
+                          style={{ width: `${(playerStats?.force || 2)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-red-300 mt-2">
+                        +2 tous les 2 niveaux • Prochain gain: Niveau {Math.ceil(userLevel / 2) * 2 + 2}
+                      </p>
+                    </div>
+
+                    {/* Endurance */}
+                    <div className="bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-2xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center">
+                            <Wind className="w-6 h-6 text-blue-400" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-blue-100">Endurance</h4>
+                            <p className="text-sm text-blue-300">Résistance cardio</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-blue-400">{playerStats?.endurance || 3}</p>
+                          <p className="text-xs text-blue-300">/ 100</p>
+                        </div>
+                      </div>
+                      <div className="bg-gray-700/50 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-cyan-600 h-full transition-all duration-500"
+                          style={{ width: `${(playerStats?.endurance || 3)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-blue-300 mt-2">
+                        +2 tous les 2 niveaux • Prochain gain: Niveau {Math.ceil(userLevel / 2) * 2 + 2}
+                      </p>
+                    </div>
+
+                    {/* Vitesse */}
+                    <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-green-500/20 rounded-2xl flex items-center justify-center">
+                            <Zap className="w-6 h-6 text-green-400" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-green-100">Vitesse</h4>
+                            <p className="text-sm text-green-300">Agilité & réactivité</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-green-400">{playerStats?.speed || 2}</p>
+                          <p className="text-xs text-green-300">/ 100</p>
+                        </div>
+                      </div>
+                      <div className="bg-gray-700/50 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-green-500 to-emerald-600 h-full transition-all duration-500"
+                          style={{ width: `${(playerStats?.speed || 2)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-green-300 mt-2">
+                        +2 tous les 2 niveaux • Prochain gain: Niveau {Math.ceil(userLevel / 2) * 2 + 2}
+                      </p>
+                    </div>
+
+                    {/* Assiduité */}
+                    <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-2xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-purple-500/20 rounded-2xl flex items-center justify-center">
+                            <Calendar className="w-6 h-6 text-purple-400" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-purple-100">Assiduité</h4>
+                            <p className="text-sm text-purple-300">Régularité d'entraînement</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-purple-400">{Math.round(playerStats?.assiduity || 0)}</p>
+                          <p className="text-xs text-purple-300">/ 100</p>
+                        </div>
+                      </div>
+                      <div className="bg-gray-700/50 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-purple-500 to-pink-600 h-full transition-all duration-500"
+                          style={{ width: `${Math.round(playerStats?.assiduity || 0)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-purple-300 mt-2">
+                        Augmente avec la régularité des entraînements
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold">45,000 kg</p>
                 </div>
-                <div className="bg-gray-700/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Activity className="w-5 h-5 text-green-400" />
-                    <h3 className="font-semibold">Séances complétées</h3>
+
+                {/* Statistiques d'entraînement */}
+                <div>
+                  <h3 className="font-semibold text-xl flex items-center gap-2 mb-4">
+                    <Activity className="w-6 h-6 text-orange-400" />
+                    Statistiques d'entraînement
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-4 text-center">
+                      <div className="w-12 h-12 bg-yellow-500/20 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                        <Medal className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      <p className="text-2xl font-bold text-yellow-400">{playerStats?.total_workouts_completed || 0}</p>
+                      <p className="text-sm text-gray-400">Séances terminées</p>
+                    </div>
+                    
+                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-4 text-center">
+                      <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                        <Dumbbell className="w-6 h-6 text-blue-400" />
+                      </div>
+                      <p className="text-2xl font-bold text-blue-400">{Math.round(playerStats?.total_weight_lifted || 0)}kg</p>
+                      <p className="text-sm text-gray-400">Poids soulevé</p>
+                    </div>
+                    
+                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-4 text-center">
+                      <div className="w-12 h-12 bg-orange-500/20 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                        <Flame className="w-6 h-6 text-orange-400" />
+                      </div>
+                      <p className="text-2xl font-bold text-orange-400">{Math.round(playerStats?.streak_days || 0)}</p>
+                      <p className="text-sm text-gray-400">Jours de série</p>
+                    </div>
+                    
+                    <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-4 text-center">
+                      <div className="w-12 h-12 bg-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                        <Star className="w-6 h-6 text-green-400" />
+                      </div>
+                      <p className="text-2xl font-bold text-green-400">{userLevel}</p>
+                      <p className="text-sm text-gray-400">Niveau actuel</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold">12</p>
                 </div>
-              </div>
-              
-              <div className="bg-gray-700/30 rounded-lg p-4 mb-4">
-                <h3 className="font-semibold mb-3">Progression des attributs</h3>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="flex items-center gap-1"><Dumbbell className="w-4 h-4 text-red-400" /> Force</span>
-                      <span>65/100</span>
+
+                {/* Progression par niveau */}
+                <div className="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-2xl p-4">
+                  <h4 className="font-semibold text-indigo-100 mb-3 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-indigo-400" />
+                    Système de progression
+                  </h4>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-indigo-300">Niveau actuel:</span>
+                      <span className="font-bold text-indigo-100">{userLevel}</span>
                     </div>
-                    <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div className="bg-red-500 h-2 rounded-full" style={{ width: '65%' }}></div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-indigo-300">Prochain gain d'attributs:</span>
+                      <span className="font-bold text-indigo-100">Niveau {Math.ceil(userLevel / 2) * 2 + 2}</span>
                     </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="flex items-center gap-1"><Wind className="w-4 h-4 text-blue-400" /> Endurance</span>
-                      <span>48/100</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-indigo-300">Gain par progression:</span>
+                      <span className="font-bold text-indigo-100">+2 Force/Endurance/Vitesse</span>
                     </div>
-                    <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div className="bg-blue-500 h-2 rounded-full" style={{ width: '48%' }}></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="flex items-center gap-1"><Zap className="w-4 h-4 text-yellow-400" /> Vitesse</span>
-                      <span>32/100</span>
-                    </div>
-                    <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '32%' }}></div>
+                    <div className="mt-3 p-3 bg-indigo-900/30 rounded-lg">
+                      <p className="text-xs text-indigo-200">
+                        💡 <strong>Système débutant:</strong> Vos attributs commencent bas (2-3) et progressent régulièrement tous les 2 niveaux pour une montée en puissance réaliste !
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -343,11 +488,20 @@ const Dashboard: React.FC = () => {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 flex-1">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 ${
-                            quest.completed 
-                              ? 'bg-green-500/30 border border-green-400/50' 
-                              : 'bg-gray-700/50 border border-gray-600/50'
-                          }`}>
+                          <div 
+                            className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 ${
+                              quest.completed 
+                                ? 'bg-green-500/30 border border-green-400/50' 
+                                : quest.id === 2 
+                                  ? 'bg-blue-500/30 border border-blue-400/50 cursor-pointer hover:bg-blue-500/40 active:scale-95' 
+                                  : 'bg-gray-700/50 border border-gray-600/50'
+                            }`}
+                            onClick={() => {
+                              if (quest.id === 2 && !quest.completed) {
+                                progressQuest(quest.id, 0.5);
+                              }
+                            }}
+                          >
                             {quest.completed ? <CheckCircle className="w-6 h-6 text-green-400" /> : quest.icon}
                           </div>
                           
@@ -358,7 +512,11 @@ const Dashboard: React.FC = () => {
                               </p>
                               {quest.completed && <Sparkles className="w-4 h-4 text-yellow-400" />}
                             </div>
-                            <p className="text-sm text-gray-400 mb-2">{quest.description}</p>
+                            <p className="text-sm text-gray-400 mb-2">
+                              {quest.id === 2 && !quest.completed 
+                                ? "Cliquez sur la goutte d'eau pour boire +0.5L" 
+                                : quest.description}
+                            </p>
                             
                             {/* Barre de progression pour les quêtes avec progress */}
                             {quest.progress !== undefined && quest.max && (
@@ -388,19 +546,9 @@ const Dashboard: React.FC = () => {
                             <p className="text-sm font-bold text-yellow-400">+{quest.coins} 💰</p>
                           </div>
                           
-                          {!quest.completed && (
+                          {!quest.completed && quest.id !== 2 && (
                             <div className="flex gap-2">
-                              {/* Boutons de progression pour les quêtes avec barre */}
-                              {quest.progress !== undefined && quest.max && (
-                                <button
-                                  onClick={() => progressQuest(quest.id, 0.5)}
-                                  className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-lg text-xs font-medium text-blue-300 transition-all duration-200 active:scale-95"
-                                >
-                                  +0.5L
-                                </button>
-                              )}
-                              
-                              {/* Bouton de validation */}
+                              {/* Bouton de validation pour toutes les quêtes sauf l'hydratation */}
                               <button
                                 onClick={() => completeQuest(quest.id)}
                                 className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl text-sm font-bold text-white transition-all duration-200 active:scale-95 shadow-lg hover:shadow-green-500/25"

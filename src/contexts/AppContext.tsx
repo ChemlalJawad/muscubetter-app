@@ -1,11 +1,15 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { DataService } from '../lib/dataService';
+import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import { 
   Player, 
   PlayerStats, 
   Workout, 
-  DailyQuest 
+  DailyQuest, 
+  DailyQuestProgress, 
+  getDailyQuestProgress, 
+  updateDailyQuestProgress, 
+  resetDailyQuests
 } from '../lib/database';
+import { DataService } from '../lib/dataService';
 
 // Définition du type pour le contexte
 interface AppContextType {
@@ -36,15 +40,17 @@ interface AppContextType {
   setCurrentScreen: (screen: string) => void;
   setActiveTab: (tab: string) => void;
   startWorkout: (workout: Workout) => void;
-  completeQuest: (questId: string) => Promise<void>;
+  completeQuest: (questId: number) => void;
   updateWaterIntake: () => void;
   completeSet: () => void;
   skipRest: () => void;
-  completeWorkout: () => Promise<void>;
+  completeWorkout: () => void;
   setWorkoutStarted: (started: boolean) => void;
   navigateToExercise: (index: number) => void;
   addXP: (amount: number) => Promise<void>;
   addMuscleCoins: (amount: number) => Promise<void>;
+  loadDailyQuests: () => void;
+  progressQuest: (questId: number, amount: number) => void;
 }
 
 // Création du contexte avec des valeurs par défaut
@@ -138,34 +144,171 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   };
 
   // Fonction pour vérifier si le niveau augmente - avec progression graduelle
-  const checkLevelUp = async (newXP: number) => {
-    // Progression plus graduelle : 500 XP pour les premiers niveaux, puis augmentation
-    const getXPForLevel = (level: number) => {
-      if (level <= 3) return 500; // Niveaux 1-3: 500 XP chacun
-      if (level <= 6) return 750; // Niveaux 4-6: 750 XP chacun
-      if (level <= 10) return 1000; // Niveaux 7-10: 1000 XP chacun
-      return 1250; // Niveaux 11+: 1250 XP chacun
-    };
-
-    let totalXPNeeded = 0;
-    let newLevel = 1;
+  const checkLevelUp = async (currentXP: number) => {
+    // Calcul du niveau basé sur des seuils progressifs
+    let level = 1;
+    let xpRequired = 0;
+    let xpForCurrentLevel = 500; // XP requis pour passer au niveau 2
     
-    // Calculer le niveau basé sur l'XP total
-    let remainingXP = newXP;
-    while (remainingXP >= getXPForLevel(newLevel)) {
-      remainingXP -= getXPForLevel(newLevel);
-      newLevel++;
+    while (currentXP >= xpRequired + xpForCurrentLevel) {
+      xpRequired += xpForCurrentLevel;
+      level++;
+      
+      // Augmentation progressive des XP requis par niveau
+      if (level <= 3) {
+        xpForCurrentLevel = 500;
+      } else if (level <= 6) {
+        xpForCurrentLevel = 750;
+      } else if (level <= 10) {
+        xpForCurrentLevel = 1000;
+      } else {
+        xpForCurrentLevel = 1500;
+      }
     }
-
-    if (newLevel > userLevel) {
-      setUserLevel(newLevel);
-      await saveUserData(newLevel, newXP, muscleCoins);
-      console.log(`🎉 LEVEL UP! Nouveau niveau: ${newLevel}`);
+    
+    if (level > userLevel) {
+      setUserLevel(level);
+      await checkAttributeProgression(level);
+      console.log(`Level up! Nouveau niveau: ${level}`);
     }
   };
 
+  // Fonction pour vérifier et appliquer la progression des attributs
+  const checkAttributeProgression = async (newLevel: number) => {
+    if (!playerStats) return;
+
+    // Calculer les gains d'attributs basés sur le niveau
+    // Progression : +2 force/endurance/speed tous les 2 niveaux
+    const attributeGain = Math.floor(newLevel / 2) * 2;
+    
+    // Valeurs de base pour débutant
+    const baseForce = 2;
+    const baseEndurance = 3;
+    const baseSpeed = 2;
+    
+    const updatedStats = {
+      ...playerStats,
+      force: Math.min(baseForce + attributeGain, 100),
+      endurance: Math.min(baseEndurance + attributeGain, 100),
+      speed: Math.min(baseSpeed + attributeGain, 100)
+    };
+    
+    // Sauvegarder uniquement si les attributs ont changé
+    if (updatedStats.force !== playerStats.force || 
+        updatedStats.endurance !== playerStats.endurance || 
+        updatedStats.speed !== playerStats.speed) {
+      await DataService.updatePlayerStats(updatedStats);
+      setPlayerStats(updatedStats);
+      console.log(`Attributs mis à jour - Niveau ${newLevel}: Force ${updatedStats.force}, Endurance ${updatedStats.endurance}, Vitesse ${updatedStats.speed}`);
+    }
+  };
+
+  // Fonction pour ajouter de l'XP
+  const addXP = async (amount: number) => {
+    const newXP = userXP + amount;
+    setUserXP(newXP);
+    await checkLevelUp(newXP);
+    await saveUserData(userLevel, newXP, muscleCoins);
+  };
+
+  // Fonction pour ajouter des Muscle Coins
+  const addMuscleCoins = async (amount: number) => {
+    const newCoins = muscleCoins + amount;
+    setMuscleCoins(newCoins);
+    await saveUserData(userLevel, userXP, newCoins);
+  };
+
+  // Fonction pour mettre à jour l'hydratation
+  const updateWaterIntake = () => {
+    // Trouver la quête d'hydratation
+    setDailyQuests(prevQuests => 
+      prevQuests.map(quest => {
+        if (quest.id === 2 && !quest.completed) { // ID 2 = Hydratation Champion
+          const newProgress = Math.min((quest.progress || 0) + 0.5, quest.max || 2);
+          const isCompleted = newProgress >= (quest.max || 2);
+          
+          // Mettre à jour la progression dans la base de données si on a un joueur connecté
+          if (currentPlayer?.player_id) {
+            updateDailyQuestProgress(currentPlayer.player_id, quest.id, newProgress, isCompleted);
+            
+            // Si la quête est complétée, donner les récompenses
+            if (isCompleted && !quest.completed) {
+              addXP(quest.xp);
+              addMuscleCoins(quest.coins);
+            }
+          }
+          
+          return {
+            ...quest,
+            progress: newProgress,
+            completed: isCompleted
+          };
+        }
+        return quest;
+      })
+    );
+  };
+
+  // Fonction pour progresser dans une quête avec persistance
+  const progressQuest = useCallback(async (questId: number, amount: number) => {
+    if (!currentPlayer?.player_id) return;
+    
+    setDailyQuests(prev => prev.map(quest => {
+      if (quest.id === questId && quest.max && !quest.completed) {
+        const newProgress = Math.min((quest.progress || 0) + amount, quest.max);
+        const isCompleted = newProgress >= quest.max;
+        
+        // Sauvegarder la progression dans la base de données
+        updateDailyQuestProgress(currentPlayer.player_id, questId, newProgress, isCompleted);
+        
+        // Si la quête est complétée, donner les récompenses
+        if (isCompleted && !quest.completed) {
+          addXP(quest.xp);
+          addMuscleCoins(quest.coins);
+        }
+        
+        return {
+          ...quest,
+          progress: newProgress,
+          completed: isCompleted
+        };
+      }
+      return quest;
+    }));
+  }, [currentPlayer?.player_id, addXP, addMuscleCoins]);
+
+  // Fonction pour charger les quêtes avec persistance
+  const loadDailyQuests = useCallback(async () => {
+    if (!currentPlayer?.player_id) return;
+    
+    try {
+      // Reset automatique des quêtes si nouveau jour
+      await resetDailyQuests(currentPlayer.player_id);
+      
+      // Charger la progression des quêtes depuis la base de données
+      const questProgress = await getDailyQuestProgress(currentPlayer.player_id);
+      
+      // Mettre à jour les quêtes avec la progression sauvegardée
+      const updatedQuests = dailyQuests.map(quest => {
+        const progress = questProgress.find(p => p.quest_id === quest.id);
+        if (progress) {
+          return {
+            ...quest,
+            completed: progress.completed,
+            progress: progress.progress
+          };
+        }
+        return quest;
+      });
+      
+      setDailyQuests(updatedQuests);
+    } catch (error) {
+      console.error('Erreur lors du chargement des quêtes:', error);
+    }
+  }, [currentPlayer?.player_id, dailyQuests]);
+
   // Fonction pour compléter une quête - avec sauvegarde immédiate
-  const completeQuest = async (questId: string) => {
+  const completeQuest = async (questId: number) => {
     // Mettre à jour l'état local
     setDailyQuests(prevQuests => 
       prevQuests.map(quest => 
@@ -207,58 +350,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       } catch (err) {
         console.error('Erreur lors de la mise à jour de la quête dans Supabase:', err);
       }
-    }
-  };
-
-  // Fonction pour mettre à jour l'hydratation
-  const updateWaterIntake = () => {
-    // Trouver la quête d'hydratation
-    const waterQuest = dailyQuests.find(q => q.id === 'quest-hydration');
-    if (!waterQuest || waterQuest.completed) return;
-    
-    // Augmenter la progression
-    const newProgress = (waterQuest.progress || 0) + 0.5;
-    
-    // Mettre à jour l'état local
-    setDailyQuests(prevQuests => 
-      prevQuests.map(q => 
-        q.id === 'quest-hydration' 
-          ? { 
-              ...q, 
-              progress: newProgress,
-              completed: newProgress >= (q.max || 2)
-            } 
-          : q
-      )
-    );
-    
-    // Si la quête est complétée, ajouter XP et pièces
-    if (newProgress >= (waterQuest.max || 2)) {
-      const newXP = userXP + (waterQuest.xp || 50);
-      const newMuscleCoins = muscleCoins + (waterQuest.coins || 10);
-      
-      setUserXP(newXP);
-      setMuscleCoins(newMuscleCoins);
-      checkLevelUp(newXP);
-      
-      // Sauvegarder dans Supabase
-      DataService.updateQuestCompletion('quest-hydration', true)
-        .then(() => {
-          console.log('Quête d\'hydratation complétée dans Supabase');
-          
-          // Mettre à jour l'XP et les Muscle Coins
-          const playerId = '00000000-0000-0000-0000-000000000001';
-          return DataService.updatePlayerXP(playerId, newXP, newMuscleCoins);
-        })
-        .then(() => {
-          console.log(`XP et Muscle Coins mis à jour dans Supabase: XP=${newXP}, Coins=${newMuscleCoins}`);
-        })
-        .catch(err => console.error('Erreur lors de la mise à jour de la quête:', err));
-    } else {
-      // Mettre à jour la progression dans Supabase
-      DataService.updateQuestCompletion('quest-hydration', false, newProgress)
-        .then(() => console.log('Progression d\'hydratation mise à jour dans Supabase'))
-        .catch(err => console.error('Erreur lors de la mise à jour de la progression:', err));
     }
   };
 
@@ -404,21 +495,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     saveWorkoutState(currentWorkout, index, 1);
   };
 
-  // Fonction pour ajouter des XP
-  const addXP = async (amount: number) => {
-    const newXP = userXP + amount;
-    setUserXP(newXP);
-    await checkLevelUp(newXP);
-    await saveUserData(userLevel, newXP, muscleCoins);
-  };
-
-  // Fonction pour ajouter des Muscle Coins
-  const addMuscleCoins = async (amount: number) => {
-    const newMuscleCoins = muscleCoins + amount;
-    setMuscleCoins(newMuscleCoins);
-    await saveUserData(userLevel, userXP, newMuscleCoins);
-  };
-
   // Chargement initial des données
   useEffect(() => {
     const loadData = async () => {
@@ -428,10 +504,26 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         
         // Charger les statistiques du joueur
         const playerId = '00000000-0000-0000-0000-000000000001';
-        const stats = await DataService.getPlayerStats(playerId);
-        if (stats) {
-          setPlayerStats(stats);
+        let stats = await DataService.getPlayerStats(playerId);
+        
+        // Si pas de stats, créer des stats de débutant
+        if (!stats) {
+          const beginnerStats = {
+            player_id: playerId,
+            force: 2,
+            endurance: 3,
+            speed: 2,
+            assiduity: 0,
+            total_weight_lifted: 0,
+            total_workouts_completed: 0,
+            streak_days: 0
+          };
+          await DataService.updatePlayerStats(beginnerStats);
+          stats = beginnerStats;
+          console.log('Stats de débutant créées');
         }
+        
+        setPlayerStats(stats);
         
         // Charger le joueur - SANS écraser les valeurs localStorage
         const player = await DataService.getPlayerById(playerId);
@@ -447,8 +539,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           if (!localStorage.getItem('muscubetter_muscle_coins')) {
             setMuscleCoins(player.muscle_coins || 250);
           }
+          
+          // Vérifier la progression des attributs au chargement
+          const currentLevel = parseInt(localStorage.getItem('muscubetter_user_level') || '1');
+          await checkAttributeProgression(currentLevel);
         }
-        
+
         // Charger le programme d'entraînement
         const programData = await DataService.getWorkoutPrograms();
         if (programData && programData.length > 0 && programData[0].workouts) {
@@ -483,6 +579,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return () => clearInterval(timer);
   }, [isResting, restTime]);
 
+  // Charger les données au démarrage et les quêtes
+  useEffect(() => {
+    loadDailyQuests();
+  }, [loadDailyQuests]);
+
   // Valeur du contexte
   const value: AppContextType = {
     currentPlayer,
@@ -503,7 +604,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setCurrentScreen,
     setActiveTab,
     startWorkout,
-    completeQuest,
+    completeQuest: (questId: number) => completeQuest(questId),
     updateWaterIntake,
     completeSet,
     skipRest,
@@ -511,7 +612,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setWorkoutStarted,
     navigateToExercise,
     addXP,
-    addMuscleCoins
+    addMuscleCoins,
+    loadDailyQuests,
+    progressQuest
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -77,12 +77,13 @@ export class DataService {
       // Créer ou mettre à jour les statistiques du joueur
       const defaultStats: PlayerStats = {
         player_id: player.player_id,
-        force: 15,
-        endurance: 12,
-        assiduity: 5,
-        total_weight_lifted: 2500,
-        total_workouts_completed: 3,
-        streak_days: 3
+        force: 2,
+        endurance: 3,
+        speed: 2,
+        assiduity: 0,
+        total_weight_lifted: 0,
+        total_workouts_completed: 0,
+        streak_days: 0
       };
       
       const updatedStats = await this.updatePlayerStats(defaultStats);
@@ -121,7 +122,7 @@ export class DataService {
   }
   
   // Mise à jour d'une quête
-  static async updateQuestCompletion(questId: string, completed: boolean, progress?: number): Promise<DailyQuest | null> {
+  static async updateQuestCompletion(questId: number, completed: boolean, progress?: number): Promise<DailyQuest | null> {
     return await updateQuestCompletion(questId, completed, progress);
   }
   

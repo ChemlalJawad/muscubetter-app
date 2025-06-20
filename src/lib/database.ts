@@ -52,6 +52,7 @@ export interface PlayerStats {
   player_id: string;
   force: number;
   endurance: number;
+  speed: number;
   assiduity: number;
   total_weight_lifted: number;
   total_workouts_completed: number;
@@ -61,7 +62,7 @@ export interface PlayerStats {
 }
 
 export interface DailyQuest {
-  id?: string;
+  id: number;
   name: string;
   description: string;
   icon: string;
@@ -71,6 +72,18 @@ export interface DailyQuest {
   max?: number;
   completed?: boolean;
   created_at?: string;
+}
+
+export interface DailyQuestProgress {
+  id?: string;
+  player_id: string;
+  quest_id: number;
+  progress: number;
+  completed: boolean;
+  completed_at?: string;
+  date: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Badge {
@@ -367,8 +380,9 @@ export async function getPlayerStats(playerId: string) {
     if (error.code === 'PGRST116') {
       const defaultStats: PlayerStats = {
         player_id: playerId,
-        force: 10,
-        endurance: 10,
+        force: 2,
+        endurance: 3,
+        speed: 2,
         assiduity: 0,
         total_weight_lifted: 0,
         total_workouts_completed: 0,
@@ -468,7 +482,91 @@ export async function getDailyQuests() {
   return data || [];
 }
 
-export async function updateQuestCompletion(questId: string, completed: boolean, progress?: number) {
+export async function getDailyQuestProgress(playerId: string, date: string = new Date().toISOString().split('T')[0]) {
+  const { data, error } = await supabase
+    .from('daily_quest_progress')
+    .select('*')
+    .eq('player_id', playerId)
+    .eq('date', date);
+    
+  if (error) {
+    console.error('Erreur lors de la récupération de la progression des quêtes:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function updateDailyQuestProgress(playerId: string, questId: number, progress: number, completed: boolean = false) {
+  const today = new Date().toISOString().split('T')[0];
+  
+  const { data, error } = await supabase
+    .from('daily_quest_progress')
+    .upsert({
+      player_id: playerId,
+      quest_id: questId,
+      progress: progress,
+      completed: completed,
+      completed_at: completed ? new Date().toISOString() : null,
+      date: today
+    }, {
+      onConflict: 'player_id,quest_id,date'
+    })
+    .select();
+    
+  if (error) {
+    console.error('Erreur lors de la mise à jour de la progression des quêtes:', error);
+    return null;
+  }
+  
+  return data?.[0] || null;
+}
+
+export async function resetDailyQuests(playerId: string) {
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
+  // Vérifier s'il y a déjà des quêtes pour aujourd'hui
+  const { data: todayQuests } = await supabase
+    .from('daily_quest_progress')
+    .select('*')
+    .eq('player_id', playerId)
+    .eq('date', today);
+    
+  // Si pas de quêtes pour aujourd'hui, les créer
+  if (!todayQuests || todayQuests.length === 0) {
+    const defaultQuests = [
+      { quest_id: 1, progress: 0, completed: false },
+      { quest_id: 2, progress: 0, completed: false },
+      { quest_id: 3, progress: 0, completed: false },
+      { quest_id: 4, progress: 0, completed: false },
+      { quest_id: 5, progress: 0, completed: false },
+      { quest_id: 6, progress: 0, completed: false },
+      { quest_id: 7, progress: 0, completed: false },
+      { quest_id: 8, progress: 0, completed: false }
+    ];
+    
+    const questsToInsert = defaultQuests.map(quest => ({
+      player_id: playerId,
+      quest_id: quest.quest_id,
+      progress: quest.progress,
+      completed: quest.completed,
+      date: today
+    }));
+    
+    const { error } = await supabase
+      .from('daily_quest_progress')
+      .insert(questsToInsert);
+      
+    if (error) {
+      console.error('Erreur lors de la création des quêtes journalières:', error);
+    }
+  }
+  
+  return true;
+}
+
+export async function updateQuestCompletion(questId: number, completed: boolean, progress?: number) {
   const updateData: any = { completed };
   
   if (progress !== undefined) {
