@@ -42,6 +42,7 @@ interface AppContextType {
   skipRest: () => void;
   completeWorkout: () => Promise<void>;
   setWorkoutStarted: (started: boolean) => void;
+  navigateToExercise: (index: number) => void;
 }
 
 // Création du contexte avec des valeurs par défaut
@@ -70,31 +71,98 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [restTime, setRestTime] = useState(0);
   const [workoutStarted, setWorkoutStarted] = useState(false);
   
-  // États pour les données utilisateur
+  // États pour les données utilisateur - avec persistance localStorage
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
-  const [userLevel, setUserLevel] = useState<number>(1);
-  const [userXP, setUserXP] = useState<number>(0);
-  const [muscleCoins, setMuscleCoins] = useState<number>(250);
+  const [userLevel, setUserLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('muscubetter_user_level');
+    return saved ? parseInt(saved) : 1;
+  });
+  const [userXP, setUserXP] = useState<number>(() => {
+    const saved = localStorage.getItem('muscubetter_user_xp');
+    return saved ? parseInt(saved) : 0;
+  });
+  const [muscleCoins, setMuscleCoins] = useState<number>(() => {
+    const saved = localStorage.getItem('muscubetter_muscle_coins');
+    return saved ? parseInt(saved) : 250;
+  });
   
   // États pour les statistiques et les programmes
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
   const [weeklyProgram, setWeeklyProgram] = useState<Workout[]>([]);
   const [dailyQuests, setDailyQuests] = useState<DailyQuest[]>([]);
   
-  // États pour l'entraînement en cours
-  const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null);
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [currentSet, setCurrentSet] = useState(1);
-  
-  // Fonction pour vérifier si le niveau augmente
-  const checkLevelUp = (newXP: number) => {
-    const newLevel = Math.floor(newXP / 1000) + 1;
-    if (newLevel > userLevel) {
-      setUserLevel(newLevel);
+  // États pour l'entraînement en cours - avec persistance
+  const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(() => {
+    const saved = localStorage.getItem('muscubetter_current_workout');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(() => {
+    const saved = localStorage.getItem('muscubetter_exercise_index');
+    return saved ? parseInt(saved) : 0;
+  });
+  const [currentSet, setCurrentSet] = useState(() => {
+    const saved = localStorage.getItem('muscubetter_current_set');
+    return saved ? parseInt(saved) : 1;
+  });
+
+  // Fonction pour sauvegarder l'état de l'entraînement
+  const saveWorkoutState = (workout: Workout | null, exerciseIndex: number, set: number) => {
+    if (workout) {
+      localStorage.setItem('muscubetter_current_workout', JSON.stringify(workout));
+      localStorage.setItem('muscubetter_exercise_index', exerciseIndex.toString());
+      localStorage.setItem('muscubetter_current_set', set.toString());
+    } else {
+      localStorage.removeItem('muscubetter_current_workout');
+      localStorage.removeItem('muscubetter_exercise_index');
+      localStorage.removeItem('muscubetter_current_set');
     }
   };
 
-  // Fonction pour compléter une quête
+  // Fonction pour sauvegarder les données utilisateur
+  const saveUserData = async (level: number, xp: number, coins: number) => {
+    // Sauvegarder localement
+    localStorage.setItem('muscubetter_user_level', level.toString());
+    localStorage.setItem('muscubetter_user_xp', xp.toString());
+    localStorage.setItem('muscubetter_muscle_coins', coins.toString());
+    
+    // Sauvegarder en base de données
+    try {
+      const playerId = '00000000-0000-0000-0000-000000000001';
+      await DataService.updatePlayerXP(playerId, xp, coins);
+      console.log(`Données utilisateur sauvegardées: Level=${level}, XP=${xp}, Coins=${coins}`);
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde en base:', error);
+    }
+  };
+
+  // Fonction pour vérifier si le niveau augmente - avec progression graduelle
+  const checkLevelUp = async (newXP: number) => {
+    // Progression plus graduelle : 500 XP pour les premiers niveaux, puis augmentation
+    const getXPForLevel = (level: number) => {
+      if (level <= 3) return 500; // Niveaux 1-3: 500 XP chacun
+      if (level <= 6) return 750; // Niveaux 4-6: 750 XP chacun
+      if (level <= 10) return 1000; // Niveaux 7-10: 1000 XP chacun
+      return 1250; // Niveaux 11+: 1250 XP chacun
+    };
+
+    let totalXPNeeded = 0;
+    let newLevel = 1;
+    
+    // Calculer le niveau basé sur l'XP total
+    let remainingXP = newXP;
+    while (remainingXP >= getXPForLevel(newLevel)) {
+      remainingXP -= getXPForLevel(newLevel);
+      newLevel++;
+    }
+
+    if (newLevel > userLevel) {
+      setUserLevel(newLevel);
+      await saveUserData(newLevel, newXP, muscleCoins);
+      console.log(`🎉 LEVEL UP! Nouveau niveau: ${newLevel}`);
+    }
+  };
+
+  // Fonction pour compléter une quête - avec sauvegarde immédiate
   const completeQuest = async (questId: string) => {
     // Mettre à jour l'état local
     setDailyQuests(prevQuests => 
@@ -115,7 +183,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       // Mettre à jour l'état local
       setUserXP(newXP);
       setMuscleCoins(newMuscleCoins);
-      checkLevelUp(newXP);
+      await checkLevelUp(newXP);
+      await saveUserData(userLevel, newXP, newMuscleCoins);
       
       // Sauvegarder dans Supabase
       try {
@@ -123,17 +192,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         await DataService.updateQuestCompletion(questId, true);
         console.log(`Quête ${questId} marquée comme complétée dans Supabase`);
         
-        // 2. Mettre à jour l'XP et les Muscle Coins du joueur
-        const playerId = 'jawad-player-id';
-        await DataService.updatePlayerXP(playerId, newXP, newMuscleCoins);
-        console.log(`XP et Muscle Coins mis à jour dans Supabase: XP=${newXP}, Coins=${newMuscleCoins}`);
-        
-        // 3. Mettre à jour les statistiques du joueur
+        // 2. Mettre à jour les statistiques du joueur avec progression graduelle
+        const playerId = '00000000-0000-0000-0000-000000000001';
         const currentStats = await DataService.getPlayerStats(playerId);
         if (currentStats) {
           await DataService.updatePlayerStats({
             ...currentStats,
-            assiduity: currentStats.assiduity + 1
+            assiduity: Math.min(currentStats.assiduity + 0.5, 100) // Progression plus lente
           });
           console.log('Statistiques du joueur mises à jour dans Supabase');
         }
@@ -180,7 +245,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           console.log('Quête d\'hydratation complétée dans Supabase');
           
           // Mettre à jour l'XP et les Muscle Coins
-          const playerId = 'jawad-player-id';
+          const playerId = '00000000-0000-0000-0000-000000000001';
           return DataService.updatePlayerXP(playerId, newXP, newMuscleCoins);
         })
         .then(() => {
@@ -195,18 +260,24 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
-  // Fonction pour démarrer un entraînement
+  // Fonction pour démarrer un entraînement - avec persistance
   const startWorkout = (workout: Workout) => {
     setCurrentWorkout(workout);
     setCurrentExerciseIndex(0);
     setCurrentSet(1);
     setWorkoutStarted(false);
     setCurrentScreen('workout');
+    
+    // Sauvegarder l'état de l'entraînement
+    saveWorkoutState(workout, 0, 1);
   };
 
-  // Fonction pour compléter une série d'exercice
+  // Fonction pour compléter une série d'exercice - avec persistance
   const completeSet = () => {
     if (!currentWorkout) return;
+    
+    const newSet = currentSet + 1;
+    const newExerciseIndex = currentExerciseIndex;
     
     // Si nous avons terminé toutes les séries de cet exercice
     if (currentSet >= (currentWorkout.exercises[currentExerciseIndex]?.sets || 1)) {
@@ -217,11 +288,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       }
       
       // Sinon, passer à l'exercice suivant
-      setCurrentExerciseIndex(prev => prev + 1);
+      const nextExerciseIndex = currentExerciseIndex + 1;
+      setCurrentExerciseIndex(nextExerciseIndex);
       setCurrentSet(1);
+      saveWorkoutState(currentWorkout, nextExerciseIndex, 1);
     } else {
       // Sinon, passer à la série suivante
-      setCurrentSet(prev => prev + 1);
+      setCurrentSet(newSet);
+      saveWorkoutState(currentWorkout, newExerciseIndex, newSet);
     }
     
     // Commencer le temps de repos
@@ -234,7 +308,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setIsResting(false);
   };
 
-  // Fonction pour terminer l'entraînement
+  // Fonction pour terminer l'entraînement - avec progression graduelle
   const completeWorkout = async () => {
     if (!currentWorkout) return;
     
@@ -247,56 +321,45 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       )
     );
     
-    // Calculer les gains de statistiques
-    // Générer un nombre aléatoire entre 3 et 8, puis arrondir à l'entier le plus proche
-    const forceGain = Math.round(Math.random() * 5 + 3); // Entre 3 et 8, arrondi à l'entier
-    const enduranceGain = Math.round(Math.random() * 5 + 2); // Entre 2 et 7, arrondi à l'entier
+    // Calculer les gains de statistiques avec progression plus graduelle
+    const baseXPGain = 100; // XP de base pour un entraînement
+    const bonusXP = currentWorkout.exercises.length * 10; // Bonus selon le nombre d'exercices
+    const totalXPGain = baseXPGain + bonusXP;
     
-    // Calculer le poids total soulevé pendant l'entraînement
-    let totalWeightLifted = 0;
-    if (currentWorkout && currentWorkout.exercises) {
-      currentWorkout.exercises.forEach((ex: any) => {
-        if (ex.weight && ex.sets && ex.reps) {
-          const weight = typeof ex.weight === 'string' ? parseFloat(ex.weight) : ex.weight;
-          if (!isNaN(weight)) {
-            totalWeightLifted += weight * ex.sets * ex.reps;
-          }
-        }
-      });
-    }
+    const baseCoinGain = 50; // Muscle Coins de base
+    const bonusCoins = Math.floor(currentWorkout.exercises.length / 2) * 10;
+    const totalCoinGain = baseCoinGain + bonusCoins;
     
-    // Mettre à jour les statistiques du joueur localement
-    if (playerStats) {
-      setPlayerStats({
-        ...playerStats,
-        force: Math.min(playerStats.force + forceGain, 100),
-        endurance: Math.min(playerStats.endurance + enduranceGain, 100),
-        total_weight_lifted: playerStats.total_weight_lifted + totalWeightLifted,
-        total_workouts_completed: playerStats.total_workouts_completed + 1,
-        streak_days: playerStats.streak_days + 1
-      });
-    }
+    // Progression graduelle des statistiques (plus lente et réaliste)
+    const forceGain = Math.min(0.5 + Math.random() * 1, 2); // 0.5-1.5 points max
+    const enduranceGain = Math.min(0.5 + Math.random() * 1, 2); // 0.5-1.5 points max
     
-    // Mettre à jour XP et coins
-    const newXP = userXP + 500;
-    const newMuscleCoins = muscleCoins + 100;
+    // Calculer le poids total soulevé (estimation)
+    const totalWeightLifted = currentWorkout.exercises.reduce((total, exercise) => {
+      const weight = exercise.weight || 0;
+      const reps = exercise.reps || 0;
+      const sets = exercise.sets || 0;
+      return total + (weight * reps * sets);
+    }, 0);
+    
+    // Mettre à jour l'XP et les Muscle Coins
+    const newXP = userXP + totalXPGain;
+    const newMuscleCoins = muscleCoins + totalCoinGain;
     
     setUserXP(newXP);
     setMuscleCoins(newMuscleCoins);
-    checkLevelUp(newXP);
+    await checkLevelUp(newXP);
+    await saveUserData(userLevel, newXP, newMuscleCoins);
     
-    // Sauvegarder dans Supabase
+    // Sauvegarder dans Supabase avec progression graduelle
     try {
-      // Mettre à jour le statut de l'entraînement
-      if (currentWorkout && currentWorkout.id) {
-        const workoutId = typeof currentWorkout.id === 'number' ? 
-          `workout-${currentWorkout.id}` : currentWorkout.id.toString();
-        
-        await DataService.updateWorkoutCompletion(workoutId, true);
-        console.log(`Entraînement ${workoutId} marqué comme complété dans Supabase`);
+      // Marquer l'entraînement comme terminé
+      if (currentWorkout.id) {
+        await DataService.updateWorkoutCompletion(currentWorkout.id, true);
+        console.log(`Entraînement ${currentWorkout.id} marqué comme terminé dans Supabase`);
       }
       
-      // Mettre à jour les statistiques du joueur
+      // Mettre à jour les statistiques du joueur avec progression graduelle
       const playerId = '00000000-0000-0000-0000-000000000001';
       if (playerStats) {
         const updatedStats = {
@@ -305,23 +368,38 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           endurance: Math.min(playerStats.endurance + enduranceGain, 100),
           total_weight_lifted: playerStats.total_weight_lifted + totalWeightLifted,
           total_workouts_completed: playerStats.total_workouts_completed + 1,
-          streak_days: playerStats.streak_days + 1
+          streak_days: Math.min(playerStats.streak_days + 0.2, 100) // Progression très graduelle
         };
         
         await DataService.updatePlayerStats(updatedStats);
-        console.log('Statistiques du joueur mises à jour dans Supabase');
+        setPlayerStats(updatedStats);
+        console.log('Statistiques du joueur mises à jour avec progression graduelle');
       }
-      
-      // Mettre à jour l'XP et les Muscle Coins
-      await DataService.updatePlayerXP(playerId, newXP, newMuscleCoins);
-      console.log(`XP et Muscle Coins mis à jour dans Supabase: XP=${newXP}, Coins=${newMuscleCoins}`);
       
     } catch (err) {
       console.error('Erreur lors de la mise à jour des données dans Supabase:', err);
     }
     
+    // Nettoyer l'état de l'entraînement
+    saveWorkoutState(null, 0, 1);
+    
     // Afficher l'écran de fin d'entraînement
     setCurrentScreen('workoutComplete');
+  };
+
+  // Fonction pour naviguer librement pendant l'entraînement
+  const navigateToExercise = (index: number) => {
+    if (!currentWorkout) return;
+    
+    // Vérifier si l'index est valide
+    if (index < 0 || index >= currentWorkout.exercises.length) return;
+    
+    // Mettre à jour l'index de l'exercice
+    setCurrentExerciseIndex(index);
+    setCurrentSet(1);
+    
+    // Sauvegarder l'état de l'entraînement
+    saveWorkoutState(currentWorkout, index, 1);
   };
 
   // Chargement initial des données
@@ -338,13 +416,20 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           setPlayerStats(stats);
         }
         
-        // Charger le joueur
+        // Charger le joueur - SANS écraser les valeurs localStorage
         const player = await DataService.getPlayerById(playerId);
         if (player) {
           setCurrentPlayer(player);
-          setUserLevel(player.level || 1);
-          setUserXP(player.xp || 0);
-          setMuscleCoins(player.muscle_coins || 250);
+          // Ne charger depuis la DB que si localStorage est vide
+          if (!localStorage.getItem('muscubetter_user_level')) {
+            setUserLevel(player.level || 1);
+          }
+          if (!localStorage.getItem('muscubetter_user_xp')) {
+            setUserXP(player.xp || 0);
+          }
+          if (!localStorage.getItem('muscubetter_muscle_coins')) {
+            setMuscleCoins(player.muscle_coins || 250);
+          }
         }
         
         // Charger le programme d'entraînement
@@ -406,7 +491,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     completeSet,
     skipRest,
     completeWorkout,
-    setWorkoutStarted
+    setWorkoutStarted,
+    navigateToExercise
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
