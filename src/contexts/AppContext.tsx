@@ -4,7 +4,6 @@ import {
   PlayerStats, 
   Workout, 
   DailyQuest, 
-  DailyQuestProgress, 
   getDailyQuestProgress, 
   updateDailyQuestProgress, 
   resetDailyQuests
@@ -135,8 +134,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     
     // Sauvegarder en base de données
     try {
-      const playerId = '00000000-0000-0000-0000-000000000001';
-      await DataService.updatePlayerXP(playerId, xp, coins);
+      await DataService.updatePlayerXP('00000000-0000-0000-0000-000000000001', xp, coins);
       console.log(`Données utilisateur sauvegardées: Level=${level}, XP=${xp}, Coins=${coins}`);
     } catch (error) {
       console.error('Erreur lors de la sauvegarde en base:', error);
@@ -204,19 +202,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   };
 
   // Fonction pour ajouter de l'XP
-  const addXP = async (amount: number) => {
+  const addXP = useCallback(async (amount: number) => {
     const newXP = userXP + amount;
     setUserXP(newXP);
     await checkLevelUp(newXP);
     await saveUserData(userLevel, newXP, muscleCoins);
-  };
+  }, [userXP, userLevel, muscleCoins, checkLevelUp, saveUserData]);
 
   // Fonction pour ajouter des Muscle Coins
-  const addMuscleCoins = async (amount: number) => {
+  const addMuscleCoins = useCallback(async (amount: number) => {
     const newCoins = muscleCoins + amount;
     setMuscleCoins(newCoins);
     await saveUserData(userLevel, userXP, newCoins);
-  };
+  }, [muscleCoins, userLevel, userXP, saveUserData]);
 
   // Fonction pour mettre à jour l'hydratation
   const updateWaterIntake = () => {
@@ -338,8 +336,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         console.log(`Quête ${questId} marquée comme complétée dans Supabase`);
         
         // 2. Mettre à jour les statistiques du joueur avec progression graduelle
-        const playerId = '00000000-0000-0000-0000-000000000001';
-        const currentStats = await DataService.getPlayerStats(playerId);
+        const currentStats = await DataService.getPlayerStats('00000000-0000-0000-0000-000000000001');
         if (currentStats) {
           await DataService.updatePlayerStats({
             ...currentStats,
@@ -453,15 +450,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       }
       
       // Mettre à jour les statistiques du joueur avec progression graduelle
-      const playerId = '00000000-0000-0000-0000-000000000001';
-      if (playerStats) {
+      const currentStats = await DataService.getPlayerStats('00000000-0000-0000-0000-000000000001');
+      if (currentStats) {
         const updatedStats = {
-          ...playerStats,
-          force: Math.min(playerStats.force + forceGain, 100),
-          endurance: Math.min(playerStats.endurance + enduranceGain, 100),
-          total_weight_lifted: playerStats.total_weight_lifted + totalWeightLifted,
-          total_workouts_completed: playerStats.total_workouts_completed + 1,
-          streak_days: Math.min(playerStats.streak_days + 0.2, 100) // Progression très graduelle
+          ...currentStats,
+          force: Math.min(currentStats.force + forceGain, 100),
+          endurance: Math.min(currentStats.endurance + enduranceGain, 100),
+          total_weight_lifted: currentStats.total_weight_lifted + totalWeightLifted,
+          total_workouts_completed: currentStats.total_workouts_completed + 1,
+          streak_days: Math.min(currentStats.streak_days + 0.2, 100) // Progression très graduelle
         };
         
         await DataService.updatePlayerStats(updatedStats);
@@ -503,13 +500,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         await DataService.initialize();
         
         // Charger les statistiques du joueur
-        const playerId = '00000000-0000-0000-0000-000000000001';
-        let stats = await DataService.getPlayerStats(playerId);
+        let stats = await DataService.getPlayerStats('00000000-0000-0000-0000-000000000001');
         
         // Si pas de stats, créer des stats de débutant
         if (!stats) {
           const beginnerStats = {
-            player_id: playerId,
+            player_id: '00000000-0000-0000-0000-000000000001',
             force: 2,
             endurance: 3,
             speed: 2,
@@ -526,7 +522,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setPlayerStats(stats);
         
         // Charger le joueur - SANS écraser les valeurs localStorage
-        const player = await DataService.getPlayerById(playerId);
+        const player = await DataService.getPlayerById('00000000-0000-0000-0000-000000000001');
         if (player) {
           setCurrentPlayer(player);
           // Ne charger depuis la DB que si localStorage est vide
