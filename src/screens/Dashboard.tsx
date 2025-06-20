@@ -3,7 +3,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { DataService } from '../lib/dataService';
 import { Exercise } from '../lib/database';
 // Import des icônes
-import { Shield, Star, Sparkles, Dumbbell, Wind, Activity, Flame, Droplet, Medal, Zap, Award, Calendar, CheckCircle, TrendingUp } from 'lucide-react';
+import { Shield, Star, Sparkles, Dumbbell, Wind, Activity, Flame, Droplet, Medal, Zap, Award, Calendar, CheckCircle, TrendingUp, Plus } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { 
@@ -13,7 +13,9 @@ const Dashboard: React.FC = () => {
     activeTab, 
     setActiveTab,
     weeklyProgram,
-    startWorkout
+    startWorkout,
+    addXP,
+    addMuscleCoins
   } = useAppContext();
 
   // Calcul du niveau basé sur l'XP
@@ -50,6 +52,19 @@ const Dashboard: React.FC = () => {
   // État pour stocker les exercices
   const [exercises, setExercises] = useState<Exercise[]>([]);
   
+  // État pour les quêtes avec validation
+  const [quests, setQuests] = useState([
+    { id: 1, name: "Le Réveil Musculaire", description: "5 min d'échauffement dynamique", completed: false, xp: 80, coins: 40, icon: '🌅' },
+    { id: 2, name: "Hydratation Champion", description: "Boire 2 litres d'eau", progress: 0, max: 2, completed: false, xp: 100, coins: 50, icon: '💧' },
+    { id: 3, name: "Le Défi Gainage", description: "Tenir la planche 60 secondes", completed: false, xp: 120, coins: 60, icon: '🏗️' },
+    { id: 4, name: "La Marche Active", description: "30 min de marche rapide", completed: false, xp: 150, coins: 75, icon: '🚶' },
+    { id: 5, name: "Sommeil Réparateur", description: "Dormir 7-8 heures", completed: false, xp: 100, coins: 50, icon: '😴' }
+  ]);
+
+  // Animation de célébration
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationText, setCelebrationText] = useState('');
+  
   // Charger les exercices au chargement du composant
   useEffect(() => {
     const loadExercises = async () => {
@@ -69,6 +84,44 @@ const Dashboard: React.FC = () => {
   const getExerciseName = (exerciseId: string): string => {
     const exercise = exercises.find(ex => ex.id === exerciseId);
     return exercise ? exercise.name : `Exercice ${exerciseId}`;
+  };
+
+  // Fonction pour valider une quête
+  const completeQuest = async (questId: number) => {
+    const quest = quests.find(q => q.id === questId);
+    if (!quest || quest.completed) return;
+
+    // Marquer la quête comme complétée
+    setQuests(prev => prev.map(q => 
+      q.id === questId ? { ...q, completed: true } : q
+    ));
+
+    // Ajouter XP et coins
+    await addXP(quest.xp);
+    await addMuscleCoins(quest.coins);
+
+    // Animation de célébration
+    setCelebrationText(`+${quest.xp} XP • +${quest.coins} 💰`);
+    setShowCelebration(true);
+    setTimeout(() => setShowCelebration(false), 2000);
+  };
+
+  // Fonction pour progresser sur une quête avec barre de progression
+  const progressQuest = (questId: number, amount: number) => {
+    setQuests(prev => prev.map(q => {
+      if (q.id === questId && !q.completed && q.max) {
+        const newProgress = Math.min(q.progress + amount, q.max);
+        const isCompleted = newProgress >= q.max;
+        
+        if (isCompleted && !q.completed) {
+          // Auto-compléter si la barre est pleine
+          setTimeout(() => completeQuest(questId), 500);
+        }
+        
+        return { ...q, progress: newProgress };
+      }
+      return q;
+    }));
   };
 
   return (
@@ -257,74 +310,138 @@ const Dashboard: React.FC = () => {
           
           {activeTab === 'quests' && (
             <div>
+              {/* Animation de célébration */}
+              {showCelebration && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+                  <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-6 py-3 rounded-2xl font-bold text-lg animate-bounce shadow-2xl">
+                    🎉 {celebrationText} 🎉
+                  </div>
+                </div>
+              )}
+
               {/* Contenu de l'onglet Quêtes */}
               <div className="space-y-4">
-                <h3 className="font-semibold">Quêtes journalières</h3>
-                <div className="space-y-2">
-                  {[
-                    { id: 1, name: "Le Réveil Musculaire", description: "5 min d'échauffement dynamique", completed: true, xp: 80, coins: 40, icon: '🌅' },
-                    { id: 2, name: "Hydratation Champion", description: "Boire 2 litres d'eau", progress: 0.5, max: 2, completed: false, xp: 100, coins: 50, icon: '💧' },
-                    { id: 3, name: "Le Défi Gainage", description: "Tenir la planche 60 secondes", completed: false, xp: 120, coins: 60, icon: '🏗️' },
-                    { id: 4, name: "La Marche Active", description: "30 min de marche rapide", completed: false, xp: 150, coins: 75, icon: '🚶' },
-                    { id: 5, name: "Sommeil Réparateur", description: "Dormir 7-8 heures", completed: false, xp: 100, coins: 50, icon: '😴' }
-                  ].map(quest => (
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-xl flex items-center gap-2">
+                    <Award className="w-6 h-6 text-yellow-400" />
+                    Quêtes journalières
+                  </h3>
+                  <div className="text-sm text-gray-400">
+                    {quests.filter(q => q.completed).length}/{quests.length} complétées
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {quests.map(quest => (
                     <div 
                       key={quest.id}
-                      className={`bg-gray-700/30 rounded-lg p-3 flex items-center justify-between transition-all ${quest.completed ? 'opacity-60 scale-98' : 'hover:bg-gray-750'}`}
+                      className={`bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-sm border rounded-2xl p-4 transition-all duration-300 ${
+                        quest.completed 
+                          ? 'border-green-500/30 bg-gradient-to-r from-green-900/20 to-emerald-900/20' 
+                          : 'border-gray-700/50 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/10'
+                      }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${quest.completed ? 'bg-green-500/30' : 'bg-gray-700'}`}>
-                          {quest.completed ? <CheckCircle className="w-5 h-5 text-green-400" /> : quest.icon}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 ${
+                            quest.completed 
+                              ? 'bg-green-500/30 border border-green-400/50' 
+                              : 'bg-gray-700/50 border border-gray-600/50'
+                          }`}>
+                            {quest.completed ? <CheckCircle className="w-6 h-6 text-green-400" /> : quest.icon}
+                          </div>
+                          
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className={`font-semibold ${quest.completed ? 'text-green-100' : 'text-white'}`}>
+                                {quest.name}
+                              </p>
+                              {quest.completed && <Sparkles className="w-4 h-4 text-yellow-400" />}
+                            </div>
+                            <p className="text-sm text-gray-400 mb-2">{quest.description}</p>
+                            
+                            {/* Barre de progression pour les quêtes avec progress */}
+                            {quest.progress !== undefined && quest.max && (
+                              <div className="mb-2">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-xs text-gray-400">
+                                    {quest.progress}/{quest.max} {quest.id === 2 ? 'litres' : 'unités'}
+                                  </span>
+                                  <span className="text-xs text-blue-400">
+                                    {Math.round((quest.progress / quest.max) * 100)}%
+                                  </span>
+                                </div>
+                                <div className="bg-gray-700/50 rounded-full h-2 overflow-hidden">
+                                  <div 
+                                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-full transition-all duration-500"
+                                    style={{ width: `${(quest.progress / quest.max) * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{quest.name}</p>
-                          <p className="text-xs text-gray-400">{quest.description}</p>
-                          {quest.progress !== undefined && (
-                            <div className="mt-1 bg-gray-700 rounded-full h-2 w-32 overflow-hidden">
-                              <div 
-                                className="bg-blue-500 h-full transition-all"
-                                style={{ width: `${(quest.progress / quest.max) * 100}%` }}
-                              />
+                        
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-purple-400">+{quest.xp} XP</p>
+                            <p className="text-sm font-bold text-yellow-400">+{quest.coins} 💰</p>
+                          </div>
+                          
+                          {!quest.completed && (
+                            <div className="flex gap-2">
+                              {/* Boutons de progression pour les quêtes avec barre */}
+                              {quest.progress !== undefined && quest.max && (
+                                <button
+                                  onClick={() => progressQuest(quest.id, 0.5)}
+                                  className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-lg text-xs font-medium text-blue-300 transition-all duration-200 active:scale-95"
+                                >
+                                  +0.5L
+                                </button>
+                              )}
+                              
+                              {/* Bouton de validation */}
+                              <button
+                                onClick={() => completeQuest(quest.id)}
+                                className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl text-sm font-bold text-white transition-all duration-200 active:scale-95 shadow-lg hover:shadow-green-500/25"
+                              >
+                                ✓ Valider
+                              </button>
+                            </div>
+                          )}
+                          
+                          {quest.completed && (
+                            <div className="px-4 py-2 bg-green-500/20 border border-green-400/30 rounded-xl text-sm font-bold text-green-300">
+                              ✓ Complétée
                             </div>
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-purple-400">+{quest.xp} XP</p>
-                        <p className="text-xs text-yellow-400">{quest.coins} 💰</p>
-                      </div>
                     </div>
                   ))}
+                </div>
+                
+                {/* Résumé des récompenses */}
+                <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-2xl p-4 mt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-purple-100 mb-1">Récompenses totales</h4>
+                      <p className="text-sm text-purple-300">Complétez toutes les quêtes pour maximiser vos gains !</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-purple-400">
+                        {quests.reduce((sum, q) => sum + q.xp, 0)} XP
+                      </p>
+                      <p className="text-lg font-bold text-yellow-400">
+                        {quests.reduce((sum, q) => sum + q.coins, 0)} 💰
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </div>
-      </div>
-      
-      {/* Navigation entre les onglets */}
-      <div className="flex justify-center space-x-2 mb-6">
-        <button 
-          onClick={() => setActiveTab('home')}
-          className={`px-4 py-2 rounded-full flex items-center gap-2 ${activeTab === 'home' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-gray-800 text-gray-400'}`}
-        >
-          <Activity className="w-4 h-4" />
-          <span>Accueil</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('stats')}
-          className={`px-4 py-2 rounded-full flex items-center gap-2 ${activeTab === 'stats' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-gray-800 text-gray-400'}`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span>Stats</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('quests')}
-          className={`px-4 py-2 rounded-full flex items-center gap-2 ${activeTab === 'quests' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-gray-800 text-gray-400'}`}
-        >
-          <Award className="w-4 h-4" />
-          <span>Quêtes</span>
-        </button>
       </div>
     </div>
   );

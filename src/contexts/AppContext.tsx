@@ -43,6 +43,8 @@ interface AppContextType {
   completeWorkout: () => Promise<void>;
   setWorkoutStarted: (started: boolean) => void;
   navigateToExercise: (index: number) => void;
+  addXP: (amount: number) => Promise<void>;
+  addMuscleCoins: (amount: number) => Promise<void>;
 }
 
 // Création du contexte avec des valeurs par défaut
@@ -402,6 +404,21 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     saveWorkoutState(currentWorkout, index, 1);
   };
 
+  // Fonction pour ajouter des XP
+  const addXP = async (amount: number) => {
+    const newXP = userXP + amount;
+    setUserXP(newXP);
+    await checkLevelUp(newXP);
+    await saveUserData(userLevel, newXP, muscleCoins);
+  };
+
+  // Fonction pour ajouter des Muscle Coins
+  const addMuscleCoins = async (amount: number) => {
+    const newMuscleCoins = muscleCoins + amount;
+    setMuscleCoins(newMuscleCoins);
+    await saveUserData(userLevel, userXP, newMuscleCoins);
+  };
+
   // Chargement initial des données
   useEffect(() => {
     const loadData = async () => {
@@ -492,7 +509,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     skipRest,
     completeWorkout,
     setWorkoutStarted,
-    navigateToExercise
+    navigateToExercise,
+    addXP,
+    addMuscleCoins
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
